@@ -1,0 +1,1945 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0A1F2B">
+<title>Avistamentos no Mar</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root{
+    --sea-deep:#081820;
+    --sea-panel:#0F2C38;
+    --sea-panel-2:#123544;
+    --sea-line:#1E5A67;
+    --sun:#F0A84A;
+    --sun-dim:#8a6428;
+    --foam:#F2F5F0;
+    --foam-dim:#9FB6BC;
+    --coral:#E2543A;
+    --seagrass:#6FA98A;
+    --mono: ui-monospace, "SF Mono", "Roboto Mono", "Courier New", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--sea-deep);}
+  body{
+    font-family:var(--sans);
+    color:var(--foam);
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  #app{max-width:640px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+
+  /* ---- Top instrument bar ---- */
+  header.topbar{
+    background:var(--sea-panel);
+    border-bottom:1px solid var(--sea-line);
+    padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+  }
+  .brand{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .brand h1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;margin:0;font-weight:700;color:var(--foam);}
+  .brand h1 span{color:var(--sun);}
+  #gps-dot{width:9px;height:9px;border-radius:50%;background:var(--coral);flex-shrink:0;transition:background .3s;}
+  #gps-dot.ok{background:var(--seagrass);}
+  #gps-dot.seeking{background:var(--sun);animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+  .readout{
+    display:flex;align-items:center;gap:6px;
+    font-family:var(--mono);font-size:12px;color:var(--foam-dim);
+    background:var(--sea-deep);border:1px solid var(--sea-line);
+    border-radius:8px;padding:8px 10px;
+  }
+  .readout .val{color:var(--sun);font-weight:600;}
+  .readout button{
+    margin-left:auto;background:none;border:1px solid var(--sea-line);color:var(--foam-dim);
+    border-radius:6px;padding:5px 9px;font-family:var(--sans);font-size:11px;
+  }
+
+  .session-row{display:flex;gap:8px;margin-top:10px;}
+  .session-field{flex:1;}
+  .session-field label{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--foam-dim);margin-bottom:4px;}
+  .session-field input{
+    width:100%;background:var(--sea-deep);border:1px solid var(--sea-line);color:var(--foam);
+    border-radius:8px;padding:9px 10px;font-family:var(--mono);font-size:14px;
+  }
+  .session-field input:focus{outline:none;border-color:var(--sun);}
+
+  /* ---- Log list ---- */
+  main{flex:1;padding:12px 14px 100px;overflow-y:auto;}
+  .log-count{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--foam-dim);
+    margin:4px 2px 10px;
+  }
+  .log-count b{color:var(--foam);font-size:13px;letter-spacing:0;}
+
+  .empty{
+    text-align:center;color:var(--foam-dim);padding:60px 20px;font-size:14px;line-height:1.6;
+  }
+  .empty .big{font-size:34px;display:block;margin-bottom:10px;}
+
+  .entry{
+    background:var(--sea-panel);border:1px solid var(--sea-line);border-radius:10px;
+    padding:11px 12px;margin-bottom:8px;
+  }
+  .entry-top{display:flex;align-items:center;gap:10px;}
+  .entry-num{
+    font-family:var(--mono);font-weight:700;color:var(--sun);font-size:13px;
+    background:var(--sea-deep);border-radius:6px;padding:3px 7px;min-width:28px;text-align:center;
+  }
+  .entry-cat{
+    font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    padding:2px 7px;border-radius:20px;flex-shrink:0;
+  }
+  .entry-cat.Lixo{background:#3a2a1a;color:#e0a95c;}
+  .entry-cat.Tartaruga{background:#1a3a2a;color:var(--seagrass);}
+  .entry-cat.Cetaceos{background:#152a3a;color:#7ec4e0;}
+  .entry-cat.Esforco{background:#2a1a3a;color:#c79ee0;}
+  .entry-main{flex:1;min-width:0;}
+  .entry-species{font-weight:700;font-size:14.5px;color:var(--foam);}
+  .entry-sub{font-family:var(--mono);font-size:11.5px;color:var(--foam-dim);margin-top:2px;}
+  .entry-photo{font-size:16px;}
+  .entry-details{
+    display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;
+    margin-top:9px;padding-top:9px;border-top:1px dashed var(--sea-line);
+    font-size:12px;color:var(--foam-dim);
+  }
+  .entry-details div b{color:var(--foam);font-weight:600;}
+  .entry-actions{display:flex;gap:8px;margin-top:10px;}
+  .entry-actions button{
+    flex:1;padding:8px;border-radius:7px;border:1px solid var(--sea-line);background:var(--sea-deep);
+    color:var(--foam-dim);font-family:var(--sans);font-size:12px;font-weight:600;
+  }
+  .entry-actions button.del{color:var(--coral);border-color:#5a2a22;}
+
+  /* ---- FAB ---- */
+  .fab-wrap{
+    position:fixed;left:0;right:0;bottom:0;
+    display:flex;justify-content:center;
+    padding:14px 14px calc(14px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, var(--sea-deep) 55%, transparent);
+    pointer-events:none;
+  }
+  #fab{
+    pointer-events:auto;
+    width:100%;max-width:612px;
+    background:var(--sun);color:#241704;border:none;border-radius:12px;
+    padding:16px;font-size:16px;font-weight:800;letter-spacing:.03em;
+    box-shadow:0 6px 20px rgba(0,0,0,.4);
+  }
+  #fab:active{transform:scale(.98);}
+
+  .toolbar{display:flex;gap:8px;margin:2px 2px 4px;}
+  .toolbar button{
+    flex:1;background:none;border:1px solid var(--sea-line);color:var(--foam-dim);
+    border-radius:8px;padding:8px;font-size:11px;font-family:var(--sans);letter-spacing:.05em;text-transform:uppercase;
+  }
+
+  /* ---- Form sheet ---- */
+  #sheet, #gpx-sheet, #map-sheet{
+    position:fixed;inset:0;background:var(--sea-deep);z-index:50;
+    display:none;flex-direction:column;
+  }
+  #gpx-sheet{z-index:60;}
+  #map-sheet{z-index:60;}
+  #sheet.open, #gpx-sheet.open, #map-sheet.open{display:flex;}
+  .sheet-header{
+    display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 14px 12px;
+    background:var(--sea-panel);border-bottom:1px solid var(--sea-line);
+  }
+  .sheet-header h2{font-size:14px;letter-spacing:.1em;text-transform:uppercase;margin:0;flex:1;}
+  .sheet-header button{background:none;border:none;color:var(--foam-dim);font-size:22px;line-height:1;padding:4px 8px;}
+  .sheet-body{flex:1;overflow-y:auto;padding:14px 14px 110px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--foam-dim);margin-bottom:6px;}
+  .field .hint{font-size:10.5px;color:var(--foam-dim);opacity:.75;margin-top:4px;font-style:italic;text-transform:none;letter-spacing:0;}
+  .field input[type=text],.field input[type=number],.field textarea,.field select{
+    width:100%;background:var(--sea-panel);border:1px solid var(--sea-line);color:var(--foam);
+    border-radius:9px;padding:12px;font-size:15.5px;font-family:var(--sans);
+  }
+  .field select{
+    -webkit-appearance:none;appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239FB6BC'><path d='M5.5 7.5l4.5 5 4.5-5z'/></svg>");
+    background-repeat:no-repeat;background-position:right 12px center;background-size:16px;
+    padding-right:36px;
+  }
+  .field select option{background:var(--sea-panel);color:var(--foam);}
+  .field input:focus,.field textarea:focus{outline:none;border-color:var(--sun);}
+  .field textarea{resize:vertical;min-height:52px;font-family:var(--sans);}
+  .row2{display:flex;gap:10px;}
+  .row2 .field{flex:1;}
+  .mono-input{font-family:var(--mono) !important;}
+
+  .gps-box{
+    background:var(--sea-panel);border:1px solid var(--sea-line);border-radius:9px;padding:10px 12px;
+  }
+  .gps-vals{display:flex;gap:10px;font-family:var(--mono);font-size:14px;}
+  .gps-vals span{color:var(--sun);}
+  .gps-box .btnrow{display:flex;gap:8px;margin-top:9px;}
+  .gps-box button{
+    flex:1;background:var(--sea-deep);border:1px solid var(--sea-line);color:var(--foam);
+    border-radius:7px;padding:8px;font-size:12px;font-weight:600;
+  }
+
+  .segmented{display:flex;gap:8px;}
+  .segmented button{
+    flex:1;padding:12px;border-radius:9px;border:1px solid var(--sea-line);background:var(--sea-panel);
+    color:var(--foam-dim);font-weight:700;font-size:14px;
+  }
+  .segmented button.active{background:var(--sun);color:#241704;border-color:var(--sun);}
+  .segmented.cat4 button{font-size:11px;padding:10px 3px;line-height:1.3;}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{
+    padding:9px 12px;border-radius:20px;border:1px solid var(--sea-line);background:var(--sea-panel);
+    color:var(--foam-dim);font-size:12.5px;
+  }
+  .chip.active{background:var(--seagrass);border-color:var(--seagrass);color:#0b1f16;font-weight:700;}
+
+  .sheet-footer{
+    position:fixed;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;
+    padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, var(--sea-deep) 60%, transparent);
+  }
+  #save-btn, #gpx-apply-btn{
+    width:100%;background:var(--seagrass);color:#0b1f16;border:none;border-radius:12px;
+    padding:16px;font-size:16px;font-weight:800;
+  }
+  #save-btn:disabled{background:var(--sea-line);color:var(--foam-dim);}
+
+  .angle-wheel{
+    display:flex;align-items:center;gap:10px;
+  }
+  .angle-visual{
+    width:60px;height:60px;border-radius:50%;border:2px solid var(--sea-line);position:relative;flex-shrink:0;background:var(--sea-panel);
+  }
+  .angle-visual::before{content:"▲";position:absolute;top:2px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--foam-dim);}
+  #angle-needle{
+    position:absolute;left:50%;top:50%;width:2px;height:24px;background:var(--sun);
+    transform-origin:center bottom;transform:translate(-50%,-100%) rotate(0deg);border-radius:2px;
+  }
+
+  ::-webkit-scrollbar{width:0;height:0;}
+
+  .subhead{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--sun);margin:20px 0 10px;padding-top:4px;border-top:1px solid var(--sea-line);}
+  .subhead:first-child{margin-top:0;border-top:none;padding-top:0;}
+
+  .cat-block{
+    background:var(--sea-panel-2);border:1px solid var(--sea-line);border-radius:10px;
+    padding:12px 12px 2px;margin-top:12px;
+  }
+  .cat-block .subhead{margin-top:0;}
+
+  .gpx-summary{
+    font-family:var(--mono);font-size:12.5px;color:var(--foam-dim);
+    background:var(--sea-panel);border:1px solid var(--sea-line);border-radius:9px;padding:10px 12px;
+  }
+  .gpx-summary b{color:var(--sun);}
+
+  .match-row{
+    display:flex;align-items:flex-start;gap:10px;
+    background:var(--sea-panel);border:1px solid var(--sea-line);border-radius:9px;
+    padding:10px 11px;margin-bottom:8px;
+  }
+  .match-row.warn{border-color:var(--coral);}
+  .match-row.nomatch{opacity:.55;}
+  .match-row input[type=checkbox]{width:20px;height:20px;flex-shrink:0;margin-top:2px;accent-color:var(--seagrass);}
+  .match-row .mm-main{flex:1;min-width:0;}
+  .match-row .mm-title{font-size:13.5px;font-weight:700;color:var(--foam);}
+  .match-row .mm-sub{font-family:var(--mono);font-size:11.5px;color:var(--foam-dim);margin-top:3px;line-height:1.5;}
+  .match-row .mm-delta{font-weight:700;}
+  .match-row.warn .mm-delta{color:var(--coral);}
+  .match-row:not(.warn) .mm-delta{color:var(--seagrass);}
+
+  .map-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;font-size:12px;color:var(--foam-dim);}
+  .map-legend .lg-item{display:flex;align-items:center;gap:6px;}
+  .map-legend .lg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  #map-canvas-wrap svg{width:100%;height:auto;display:block;}
+  .map-point{cursor:pointer;}
+
+  #print-report{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    #print-report, #print-report *{visibility:visible;}
+    #print-report{
+      display:block !important;position:absolute;left:0;top:0;width:100%;
+      background:#fff;color:#111;font-family:var(--sans);padding:0;
+    }
+    .pr-h1{font-size:20px;font-weight:800;margin:0 0 4px;}
+    .pr-sub{font-size:12px;color:#444;margin:0 0 14px;}
+    .pr-section-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:18px 0 6px;border-bottom:1px solid #999;padding-bottom:3px;}
+    .pr-summary{display:flex;gap:18px;font-size:12px;margin-bottom:6px;}
+    .pr-table{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:10px;}
+    .pr-table th, .pr-table td{border:1px solid #ccc;padding:4px 6px;text-align:left;vertical-align:top;}
+    .pr-table th{background:#eee;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <h1>Log<span>·</span>Avistamentos</h1>
+      <div id="gps-dot"></div>
+    </div>
+    <div class="readout">
+      <span>POS</span>
+      <span class="val" id="readout-lat">--.------</span>
+      <span class="val" id="readout-lon">--.------</span>
+      <button id="gps-retry">atualizar</button>
+    </div>
+    <div class="session-row">
+      <div class="session-field">
+        <label>Código da saída</label>
+        <input type="text" id="saida-codigo" placeholder="ex: 2026-08-20-A" autocomplete="off">
+      </div>
+      <div class="session-field">
+        <label>Data</label>
+        <input type="date" id="saida-data">
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="toolbar">
+      <button id="btn-export-csv">Exportar CSV</button>
+      <button id="btn-export-json">Cópia segurança</button>
+      <button id="btn-import-json">Importar (JSON/CSV)</button>
+    </div>
+    <div class="toolbar">
+      <button id="btn-import-gpx" style="border-color:var(--sun);color:var(--sun);">📡 Importar GPX (eTrex)</button>
+    </div>
+    <div class="toolbar">
+      <button id="btn-map">🗺️ Ver no mapa</button>
+      <button id="btn-report">🖨️ Relatório (PDF)</button>
+    </div>
+    <input type="file" id="file-import" accept=".json,.csv,application/json,text/csv" style="display:none">
+    <input type="file" id="file-import-gpx" accept=".gpx,application/gpx+xml,application/xml,text/xml" style="display:none">
+
+    <div class="log-count"><span>Registos desta saída</span><b id="count-badge">0</b></div>
+    <div id="log-list"></div>
+  </main>
+
+  <div class="fab-wrap"><button id="fab">+ Criar Registo</button></div>
+
+  <!-- FORM SHEET -->
+  <div id="sheet">
+    <div class="sheet-header">
+      <h2 id="sheet-title">Novo registo</h2>
+      <button id="sheet-close">&times;</button>
+    </div>
+    <div class="sheet-body">
+
+      <div class="subhead">Data, transecto e hora</div>
+      <div class="row2">
+        <div class="field">
+          <label>Data</label>
+          <input type="date" id="f-data" class="mono-input">
+        </div>
+        <div class="field">
+          <label>ID do transecto</label>
+          <input type="text" id="f-transecto" class="mono-input" inputmode="text" placeholder="ex: T3">
+        </div>
+      </div>
+      <div class="field">
+        <label>Hora (HH:MM:SS)</label>
+        <input type="text" id="f-hora" class="mono-input" placeholder="14:32:05" inputmode="numeric">
+      </div>
+
+      <div class="subhead">Posição, velocidade e rumo</div>
+      <div class="gps-box">
+        <div class="gps-vals">
+          <span id="f-lat-display">--.------</span>
+          <span id="f-lon-display">--.------</span>
+        </div>
+        <div class="btnrow">
+          <button type="button" id="f-gps-capture">📍 Capturar posição, velocidade e rumo</button>
+        </div>
+        <div class="row2" style="margin-top:10px;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Latitude (º decimais)</label>
+            <input type="text" id="f-lat" class="mono-input" inputmode="decimal" placeholder="37.741200">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Longitude (º decimais)</label>
+            <input type="text" id="f-lon" class="mono-input" inputmode="decimal" placeholder="-25.667800">
+          </div>
+        </div>
+        <div class="row2" style="margin-top:10px;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Velocidade (nós)</label>
+            <input type="text" id="f-velocidade" class="mono-input" inputmode="decimal" placeholder="ex: 8.5">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Rumo (°)</label>
+            <input type="text" id="f-rumo" class="mono-input" inputmode="decimal" placeholder="0–360">
+          </div>
+        </div>
+        <div class="hint">Velocidade e rumo são captados pelo GPS do aparelho quando em movimento; podem ser editados manualmente (ex: a partir do eTrex).</div>
+      </div>
+
+      <div class="subhead">Geometria do avistamento</div>
+      <div class="row2">
+        <div class="field">
+          <label>Ângulo ao barco (0°=proa)</label>
+          <div class="angle-wheel">
+            <div class="angle-visual"><div id="angle-needle"></div></div>
+            <input type="number" id="f-angulo" min="0" max="360" placeholder="0–360" inputmode="numeric">
+          </div>
+        </div>
+        <div class="field">
+          <label>Distância estimada (m)</label>
+          <input type="number" id="f-distancia" min="0" placeholder="metros" inputmode="numeric">
+        </div>
+      </div>
+
+      <div class="subhead">Categoria</div>
+      <div class="field">
+        <div class="segmented cat4" id="categoria-segmented">
+          <button type="button" data-v="Esforco">Esforço<br>Monitorização</button>
+          <button type="button" data-v="Cetaceos">Cetáceos</button>
+          <button type="button" data-v="Lixo">Lixo</button>
+          <button type="button" data-v="Tartaruga">Tartarugas</button>
+        </div>
+      </div>
+
+      <!-- ===== ESFORÇO MONITORIZAÇÃO ===== -->
+      <div id="cat-esforco" class="cat-block" style="display:none;">
+        <div class="subhead">Esforço Monitorização</div>
+        <div class="field">
+          <label>Ação</label>
+          <select id="f-esf-acao">
+            <option value="">Selecionar...</option>
+            <option value="IT">IT = Início transecto</option>
+            <option value="FT">FT = Fim transecto</option>
+            <option value="MP">MP = Mudança posições</option>
+            <option value="MT">MT = Mudança tempo</option>
+            <option value="PT">PT = Interrupção do transecto</option>
+            <option value="RT">RT = Retoma transecto</option>
+          </select>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Observador BB</label>
+            <input type="text" id="f-esf-obs-bb" placeholder="nome">
+          </div>
+          <div class="field">
+            <label>Observador Dados</label>
+            <input type="text" id="f-esf-obs-dados" placeholder="nome">
+          </div>
+        </div>
+        <div class="field">
+          <label>Observador EB</label>
+          <input type="text" id="f-esf-obs-eb" placeholder="nome">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Beaufort</label>
+            <select id="f-esf-beaufort">
+              <option value="">Selecionar...</option>
+              <option value="0">0 = Calmo · mar espelhado e liso</option>
+              <option value="1">1 = Aragem · pequenas rugas sem espuma</option>
+              <option value="2">2 = Fraco · ondas curtas, sem rebentação</option>
+              <option value="3">3 = Bonançoso · raros carneirinhos</option>
+              <option value="4">4 = Moderado · carneirinhos frequentes</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Vaga</label>
+            <select id="f-esf-vaga">
+              <option value="">Selecionar...</option>
+              <option value="0">0 = 0–0.5 m</option>
+              <option value="1">1 = 0.5–1 m</option>
+              <option value="2">2 = 1–2 m</option>
+              <option value="3">3 = ≥2 m</option>
+            </select>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Chuva</label>
+            <select id="f-esf-chuva">
+              <option value="">Selecionar...</option>
+              <option value="0">0 = Sem chuva</option>
+              <option value="1">1 = Chuva fraca</option>
+              <option value="2">2 = Chuva forte</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Nuvens</label>
+            <select id="f-esf-nuvens">
+              <option value="">Selecionar...</option>
+              <option value="0">0 = Sem nuvens</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8 = Totalmente encoberto</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Vento</label>
+          <select id="f-esf-vento">
+            <option value="">Selecionar...</option>
+            <option value="N">N – Norte</option>
+            <option value="NE">NE – Nordeste</option>
+            <option value="E">E – Este</option>
+            <option value="SE">SE – Sudeste</option>
+            <option value="S">S – Sul</option>
+            <option value="SO">SO – Sudoeste</option>
+            <option value="O">O – Oeste</option>
+            <option value="NO">NO – Noroeste</option>
+          </select>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Glare-BB</label>
+            <select id="f-esf-glare-bb">
+              <option value="">Selecionar...</option>
+              <option value="0">0 = Sem glare</option>
+              <option value="1">1 = Reflexo solar fraco</option>
+              <option value="2">2 = Reflexo solar moderado</option>
+              <option value="3">3 = Reflexo solar forte</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Glare-Proa</label>
+            <select id="f-esf-glare-proa">
+              <option value="">Selecionar...</option>
+              <option value="0">0 = Sem glare</option>
+              <option value="1">1 = Reflexo solar fraco</option>
+              <option value="2">2 = Reflexo solar moderado</option>
+              <option value="3">3 = Reflexo solar forte</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Glare-EB</label>
+          <select id="f-esf-glare-eb">
+            <option value="">Selecionar...</option>
+            <option value="0">0 = Sem glare</option>
+            <option value="1">1 = Reflexo solar fraco</option>
+            <option value="2">2 = Reflexo solar moderado</option>
+            <option value="3">3 = Reflexo solar forte</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Visibilidade</label>
+          <select id="f-esf-visibilidade">
+            <option value="">Selecionar...</option>
+            <option value="0">0 = Boa (≥5 nm)</option>
+            <option value="1">1 = Moderada (2–5 nm)</option>
+            <option value="2">2 = Fraca (1–2 nm)</option>
+            <option value="3">3 = Nevoeiro (&lt;1 nm)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Notas</label>
+          <textarea id="f-esf-notas" placeholder="observações adicionais"></textarea>
+        </div>
+      </div>
+
+      <!-- ===== LIXO ===== -->
+      <div id="cat-lixo" class="cat-block" style="display:none;">
+        <div class="subhead">Lixo</div>
+        <div class="row2">
+          <div class="field">
+            <label>Observador</label>
+            <input type="text" id="f-lixo-observador" placeholder="nome">
+          </div>
+          <div class="field">
+            <label>Glare</label>
+            <select id="f-lixo-glare">
+              <option value="">Selecionar...</option>
+              <option value="0">0 = Sem glare</option>
+              <option value="1">1 = Reflexo solar fraco</option>
+              <option value="2">2 = Reflexo solar moderado</option>
+              <option value="3">3 = Reflexo solar forte</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Tipo de lixo</label>
+          <input type="text" id="f-lixo-tipo" placeholder="ex: plástico, rede/cabo, madeira...">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Tamanho</label>
+            <input type="text" id="f-lixo-tamanho" placeholder="ex: 30 cm">
+          </div>
+          <div class="field">
+            <label>Cor</label>
+            <input type="text" id="f-lixo-cor" placeholder="ex: branco">
+          </div>
+        </div>
+        <div class="field">
+          <label>Aglomerado</label>
+          <div class="segmented" id="lixo-aglomerado-segmented">
+            <button type="button" data-v="Sim">Sim</button>
+            <button type="button" data-v="Não">Não</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Recolhido</label>
+          <div class="segmented" id="lixo-recolhido-segmented">
+            <button type="button" data-v="Sim">Sim</button>
+            <button type="button" data-v="Não">Não</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Fotos</label>
+          <div class="segmented" id="fotos-segmented-lixo">
+            <button type="button" data-v="Sim">Sim</button>
+            <button type="button" data-v="Não">Não</button>
+          </div>
+        </div>
+        <div class="field" id="fotos-ref-wrap-lixo" style="display:none;">
+          <label>Identificação das fotos</label>
+          <input type="text" id="f-fotos-ref-lixo" placeholder="ex: nºs ou nomes dos ficheiros">
+          <div class="hint">Para associar mais tarde as fotografias tiradas a este registo.</div>
+        </div>
+        <div class="field">
+          <label>Notas</label>
+          <textarea id="f-lixo-notas" placeholder="observações adicionais"></textarea>
+        </div>
+      </div>
+
+      <!-- ===== TARTARUGA ===== -->
+      <div id="cat-tartaruga" class="cat-block" style="display:none;">
+        <div class="subhead">Tartaruga</div>
+        <div class="row2">
+          <div class="field">
+            <label>Observador</label>
+            <input type="text" id="f-tart-observador" placeholder="nome">
+          </div>
+          <div class="field">
+            <label>Glare</label>
+            <select id="f-tart-glare">
+              <option value="">Selecionar...</option>
+              <option value="0">0 = Sem glare</option>
+              <option value="1">1 = Reflexo solar fraco</option>
+              <option value="2">2 = Reflexo solar moderado</option>
+              <option value="3">3 = Reflexo solar forte</option>
+            </select>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Espécie</label>
+            <select id="f-tart-especie">
+              <option value="">Selecionar...</option>
+              <option value="Tartaruga-comum (Caretta caretta)">Tartaruga-comum (Caretta caretta)</option>
+              <option value="Tartaruga-verde (Chelonia mydas)">Tartaruga-verde (Chelonia mydas)</option>
+              <option value="Tartaruga-de-couro (Dermochelys coriacea)">Tartaruga-de-couro (Dermochelys coriacea)</option>
+              <option value="Tartaruga-de-Kemp (Lepidochelys kempii)">Tartaruga-de-Kemp (Lepidochelys kempii)</option>
+              <option value="OUTRA">Outra (especificar)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Tamanho</label>
+            <input type="text" id="f-tart-tamanho" placeholder="ex: 40 cm">
+          </div>
+        </div>
+        <div class="field" id="f-tart-especie-outra-wrap" style="display:none;">
+          <label>Espécie (especificar)</label>
+          <input type="text" id="f-tart-especie-outra" placeholder="nome da espécie">
+        </div>
+        <div class="field">
+          <label>Comportamento</label>
+          <select id="f-tart-comportamento">
+            <option value="">Selecionar...</option>
+            <option value="Alimentação">Alimentação</option>
+            <option value="Basking">Basking</option>
+            <option value="Mergulhou">Mergulhou</option>
+            <option value="Near Surface">Near Surface</option>
+            <option value="OUTRA">Outra (especificar)</option>
+          </select>
+        </div>
+        <div class="field" id="f-tart-comportamento-outra-wrap" style="display:none;">
+          <label>Comportamento (especificar)</label>
+          <input type="text" id="f-tart-comportamento-outra" placeholder="descrever comportamento">
+        </div>
+        <div class="field">
+          <label>Reação</label>
+          <select id="f-tart-reacao">
+            <option value="">Selecionar...</option>
+            <option value="Positiva">Positiva</option>
+            <option value="Neutra">Neutra</option>
+            <option value="Negativa">Negativa</option>
+            <option value="OUTRA">Outra (especificar)</option>
+          </select>
+        </div>
+        <div class="field" id="f-tart-reacao-outra-wrap" style="display:none;">
+          <label>Reação (especificar)</label>
+          <input type="text" id="f-tart-reacao-outra" placeholder="descrever reação">
+        </div>
+        <div class="subhead">Associações</div>
+        <div class="field">
+          <div class="chips" id="assoc-chips-tartaruga">
+            <button type="button" class="chip" data-v="0">0 · Nada</button>
+            <button type="button" class="chip" data-v="1">1 · Aves marinhas</button>
+            <button type="button" class="chip" data-v="2">2 · Peixes</button>
+            <button type="button" class="chip" data-v="3">3 · Outros cetáceos</button>
+            <button type="button" class="chip" data-v="4">4 · Tartarugas</button>
+            <button type="button" class="chip" data-v="5">5 · Lixo</button>
+            <button type="button" class="chip" data-v="6">6 · Não identificado</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Grau certeza</label>
+          <select id="f-tart-grau-certeza">
+            <option value="">Selecionar...</option>
+            <option value="1">1 = Possível</option>
+            <option value="2">2 = Provável</option>
+            <option value="3">3 = Certo</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Fotos</label>
+          <div class="segmented" id="fotos-segmented-tartaruga">
+            <button type="button" data-v="Sim">Sim</button>
+            <button type="button" data-v="Não">Não</button>
+          </div>
+        </div>
+        <div class="field" id="fotos-ref-wrap-tartaruga" style="display:none;">
+          <label>Identificação das fotos</label>
+          <input type="text" id="f-fotos-ref-tartaruga" placeholder="ex: nºs ou nomes dos ficheiros">
+          <div class="hint">Para associar mais tarde as fotografias tiradas a este registo.</div>
+        </div>
+        <div class="field">
+          <label>Notas</label>
+          <textarea id="f-tart-notas" placeholder="observações adicionais"></textarea>
+        </div>
+      </div>
+
+      <!-- ===== CETÁCEOS ===== -->
+      <div id="cat-cetaceos" class="cat-block" style="display:none;">
+        <div class="subhead">Cetáceos</div>
+        <div class="row2">
+          <div class="field">
+            <label>Observador</label>
+            <input type="text" id="f-cet-observador" placeholder="nome">
+          </div>
+          <div class="field">
+            <label>Glare</label>
+            <select id="f-cet-glare">
+              <option value="">Selecionar...</option>
+              <option value="0">0 = Sem glare</option>
+              <option value="1">1 = Reflexo solar fraco</option>
+              <option value="2">2 = Reflexo solar moderado</option>
+              <option value="3">3 = Reflexo solar forte</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Espécie</label>
+          <select id="f-cet-especie">
+            <option value="">Selecionar...</option>
+            <option value="Roaz (Tursiops truncatus)">Roaz (Tursiops truncatus)</option>
+            <option value="Golfinho-pintado-do-atlântico (Stenella frontalis)">Golfinho-pintado-do-atlântico (Stenella frontalis)</option>
+            <option value="Golfinho-comum (Delphinus delphis)">Golfinho-comum (Delphinus delphis)</option>
+            <option value="Golfinho-riscado (Stenella coeruleoalba)">Golfinho-riscado (Stenella coeruleoalba)</option>
+            <option value="Golfinho-de-Risso (Grampus griseus)">Golfinho-de-Risso (Grampus griseus)</option>
+            <option value="Cachalote (Physeter macrocephalus)">Cachalote (Physeter macrocephalus)</option>
+            <option value="Baleia-piloto (Globicephala macrorhynchus)">Baleia-piloto (Globicephala macrorhynchus)</option>
+            <option value="Orca (Orcinus orca)">Orca (Orcinus orca)</option>
+            <option value="Baleia-bicuda-de-Cuvier (Ziphius cavirostris)">Baleia-bicuda-de-Cuvier (Ziphius cavirostris)</option>
+            <option value="Baleia-anã (Balaenoptera acutorostrata)">Baleia-anã (Balaenoptera acutorostrata)</option>
+            <option value="Baleia-sardinheira (Balaenoptera borealis)">Baleia-sardinheira (Balaenoptera borealis)</option>
+            <option value="Baleia-comum (Balaenoptera physalus)">Baleia-comum (Balaenoptera physalus)</option>
+            <option value="Baleia-azul (Balaenoptera musculus)">Baleia-azul (Balaenoptera musculus)</option>
+            <option value="Baleia-de-bossa (Megaptera novaeangliae)">Baleia-de-bossa (Megaptera novaeangliae)</option>
+            <option value="OUTRA">Outra (especificar)</option>
+          </select>
+        </div>
+        <div class="field" id="f-cet-especie-outra-wrap" style="display:none;">
+          <label>Espécie (especificar)</label>
+          <input type="text" id="f-cet-especie-outra" placeholder="nome da espécie">
+        </div>
+        <div class="field">
+          <label>Nº indivíduos</label>
+          <div class="row2">
+            <div class="field" style="margin-bottom:0;">
+              <label>Mín</label>
+              <input type="number" id="f-n-min" class="mono-input" min="0" inputmode="numeric" placeholder="0">
+            </div>
+            <div class="field" style="margin-bottom:0;">
+              <label>Best</label>
+              <input type="number" id="f-n-best" class="mono-input" min="0" inputmode="numeric" placeholder="0">
+            </div>
+            <div class="field" style="margin-bottom:0;">
+              <label>Máx</label>
+              <input type="number" id="f-n-max" class="mono-input" min="0" inputmode="numeric" placeholder="0">
+            </div>
+          </div>
+          <div class="hint">Best = melhor estimativa; Mín–Máx = intervalo plausível</div>
+        </div>
+        <div class="field">
+          <label>Comportamento</label>
+          <select id="f-cet-comportamento">
+            <option value="">Selecionar...</option>
+            <option value="Alimentação">Alimentação</option>
+            <option value="À superfície">À superfície</option>
+            <option value="Deslocar">Deslocar</option>
+            <option value="Mergulhar">Mergulhar</option>
+            <option value="Saltar">Saltar</option>
+            <option value="Socializar">Socializar</option>
+            <option value="OUTRA">Outra (especificar)</option>
+          </select>
+        </div>
+        <div class="field" id="f-cet-comportamento-outra-wrap" style="display:none;">
+          <label>Comportamento (especificar)</label>
+          <input type="text" id="f-cet-comportamento-outra" placeholder="descrever comportamento">
+        </div>
+        <div class="field">
+          <label>Reação</label>
+          <select id="f-cet-reacao">
+            <option value="">Selecionar...</option>
+            <option value="Positiva">Positiva</option>
+            <option value="Neutra">Neutra</option>
+            <option value="Negativa">Negativa</option>
+          </select>
+        </div>
+        <div class="subhead">Associações</div>
+        <div class="field">
+          <div class="chips" id="assoc-chips-cetaceos">
+            <button type="button" class="chip" data-v="0">0 · Nada</button>
+            <button type="button" class="chip" data-v="1">1 · Aves marinhas</button>
+            <button type="button" class="chip" data-v="2">2 · Peixes</button>
+            <button type="button" class="chip" data-v="3">3 · Outros cetáceos</button>
+            <button type="button" class="chip" data-v="4">4 · Tartarugas</button>
+            <button type="button" class="chip" data-v="5">5 · Lixo</button>
+            <button type="button" class="chip" data-v="6">6 · Não identificado</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Grau certeza</label>
+          <select id="f-cet-grau-certeza">
+            <option value="">Selecionar...</option>
+            <option value="1">1 = Possível</option>
+            <option value="2">2 = Provável</option>
+            <option value="3">3 = Certo</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Fotos</label>
+          <div class="segmented" id="fotos-segmented-cetaceos">
+            <button type="button" data-v="Sim">Sim</button>
+            <button type="button" data-v="Não">Não</button>
+          </div>
+        </div>
+        <div class="field" id="fotos-ref-wrap-cetaceos" style="display:none;">
+          <label>Identificação das fotos</label>
+          <input type="text" id="f-fotos-ref-cetaceos" placeholder="ex: nºs ou nomes dos ficheiros">
+          <div class="hint">Para associar mais tarde as fotografias tiradas a este registo.</div>
+        </div>
+        <div class="field">
+          <label>Notas</label>
+          <textarea id="f-cet-notas" placeholder="observações adicionais"></textarea>
+        </div>
+      </div>
+
+    </div>
+    <div class="sheet-footer">
+      <button id="save-btn">Guardar registo</button>
+    </div>
+  </div>
+
+  <!-- GPX IMPORT REVIEW SHEET -->
+  <div id="gpx-sheet">
+    <div class="sheet-header">
+      <h2>Importar posições do eTrex</h2>
+      <button id="gpx-sheet-close">&times;</button>
+    </div>
+    <div class="sheet-body">
+      <div class="gpx-summary" id="gpx-summary"></div>
+
+      <div class="field" style="margin-top:14px;">
+        <label>Ajuste de relógio eTrex ↔ tablet (minutos)</label>
+        <input type="number" id="gpx-offset" class="mono-input" value="0" inputmode="numeric">
+        <div class="hint">Se os relógios não estiverem sincronizados, ajusta aqui até as diferenças ficarem próximas de 0. Positivo = relógio do eTrex está adiantado.</div>
+      </div>
+
+      <div class="subhead">Correspondências propostas</div>
+      <div id="gpx-matches"></div>
+    </div>
+    <div class="sheet-footer">
+      <button id="gpx-apply-btn">Aplicar posições selecionadas</button>
+    </div>
+  </div>
+
+  <!-- MAP SHEET -->
+  <div id="map-sheet">
+    <div class="sheet-header">
+      <h2>Mapa da saída</h2>
+      <button id="map-sheet-close">&times;</button>
+    </div>
+    <div class="sheet-body" style="padding:14px;">
+      <div id="map-empty" class="empty" style="display:none;">Sem posições registadas nesta saída ainda.</div>
+      <div id="map-canvas-wrap" style="background:var(--sea-panel);border:1px solid var(--sea-line);border-radius:10px;padding:8px;"></div>
+      <div class="map-legend" id="map-legend"></div>
+      <div id="map-selected" class="gpx-summary" style="margin-top:12px;display:none;"></div>
+      <div class="hint" style="margin-top:10px;">Mapa aproximado a partir das coordenadas registadas (sem ligação à internet). Toca num ponto para ver os detalhes.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PRINT REPORT (invisível no ecrã, só aparece ao imprimir/gerar PDF) -->
+<div id="print-report"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  const STORAGE_KEY = "avistamentos_registos_v1";
+  const SESSION_KEY = "avistamentos_sessao_v1";
+  const ASSOC_LABELS = {"0":"Nada","1":"Aves","2":"Peixes","3":"Outros cetáceos","4":"Tartarugas","5":"Lixo","6":"Não id."};
+  const ACAO_LABELS = {"IT":"Início transecto","FT":"Fim transecto","MP":"Mudança posições","MT":"Mudança tempo","PT":"Interrupção do transecto","RT":"Retoma transecto"};
+  const BEAUFORT_LABELS = {"0":"Calmo","1":"Aragem","2":"Fraco","3":"Bonançoso","4":"Moderado"};
+  const VAGA_LABELS = {"0":"0–0.5 m","1":"0.5–1 m","2":"1–2 m","3":"≥2 m"};
+  const CHUVA_LABELS = {"0":"Sem chuva","1":"Chuva fraca","2":"Chuva forte"};
+  const GLARE_LABELS = {"0":"Sem glare","1":"Fraco","2":"Moderado","3":"Forte"};
+  const GRAU_CERTEZA_LABELS = {"1":"Possível","2":"Provável","3":"Certo"};
+  const VENTO_LABELS = {"N":"Norte","NE":"Nordeste","E":"Este","SE":"Sudeste","S":"Sul","SO":"Sudoeste","O":"Oeste","NO":"Noroeste"};
+  const VISIB_LABELS = {"0":"Boa (≥5nm)","1":"Moderada (2–5nm)","2":"Fraca (1–2nm)","3":"Nevoeiro (<1nm)"};
+  function codeLabel(map, code){
+    if(code===undefined || code===null || code==="") return "";
+    return code + (map[code] ? " · "+map[code] : "");
+  }
+  const CAT_LABELS = {"Esforco":"Esforço", "Lixo":"Lixo","Tartaruga":"Tartaruga","Cetaceos":"Cetáceos"};
+  const CAT_COLORS = {"Esforco":"#c79ee0","Lixo":"#e0a95c","Tartaruga":"#6FA98A","Cetaceos":"#7ec4e0"};
+
+  let registos = [];
+  let editingId = null;
+  let lastFix = null; // {lat, lon, accuracy}
+
+  // form state (mutated in place, never reassigned, so closures stay valid)
+  let catValue = null;
+  let fotosValue = null;
+  let lixoRecolhidoValue = null;
+  let lixoAglomeradoValue = null;
+  const assocTartSelected = new Set();
+  const assocCetSelected = new Set();
+
+  let gpxPoints = []; // {time:Date, lat, lon, name}
+  let gpxMatches = []; // aligned with currently-filtered registos: {regId, point, deltaSec}
+
+  // ---------- persistence ----------
+  function load(){
+    try{ registos = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch(e){ registos = []; }
+    try{
+      const s = JSON.parse(localStorage.getItem(SESSION_KEY));
+      if(s){
+        document.getElementById("saida-codigo").value = s.codigo || "";
+        document.getElementById("saida-data").value = s.data || "";
+      }
+    }catch(e){}
+    if(!document.getElementById("saida-data").value){
+      document.getElementById("saida-data").value = new Date().toISOString().slice(0,10);
+    }
+  }
+  function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(registos)); }
+  function persistSession(){
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      codigo: document.getElementById("saida-codigo").value,
+      data: document.getElementById("saida-data").value
+    }));
+  }
+  document.getElementById("saida-codigo").addEventListener("input", ()=>{persistSession(); render();});
+  document.getElementById("saida-data").addEventListener("change", ()=>{persistSession(); render();});
+
+  // ---------- GPS ----------
+  const dot = document.getElementById("gps-dot");
+  const roLat = document.getElementById("readout-lat");
+  const roLon = document.getElementById("readout-lon");
+
+  function watchGPS(){
+    if(!navigator.geolocation){ dot.className=""; return; }
+    dot.className = "seeking";
+    navigator.geolocation.watchPosition(pos=>{
+      lastFix = {
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+        speed: (pos.coords.speed!==null && pos.coords.speed!==undefined) ? pos.coords.speed*1.94384 : null, // m/s -> nós
+        heading: (pos.coords.heading!==null && pos.coords.heading!==undefined && !isNaN(pos.coords.heading)) ? pos.coords.heading : null
+      };
+      dot.className = "ok";
+      roLat.textContent = lastFix.lat.toFixed(6);
+      roLon.textContent = lastFix.lon.toFixed(6);
+    }, err=>{
+      dot.className = "";
+    }, {enableHighAccuracy:true, maximumAge:5000, timeout:15000});
+  }
+  document.getElementById("gps-retry").addEventListener("click", watchGPS);
+  watchGPS();
+
+  document.getElementById("f-gps-capture").addEventListener("click", ()=>{
+    if(lastFix){
+      document.getElementById("f-lat").value = lastFix.lat.toFixed(6);
+      document.getElementById("f-lon").value = lastFix.lon.toFixed(6);
+      document.getElementById("f-lat-display").textContent = lastFix.lat.toFixed(6);
+      document.getElementById("f-lon-display").textContent = lastFix.lon.toFixed(6);
+      document.getElementById("f-velocidade").value = (lastFix.speed!==null) ? lastFix.speed.toFixed(1) : "";
+      document.getElementById("f-rumo").value = (lastFix.heading!==null) ? Math.round(lastFix.heading) : "";
+      if(lastFix.speed===null || lastFix.heading===null){
+        alert("Posição capturada. Velocidade e/ou rumo ainda não disponíveis (normal se o barco estiver parado ou sem sinal suficiente) — podes introduzir manualmente.");
+      }
+    } else {
+      alert("Ainda sem posição GPS válida. Aguarde sinal ou introduza manualmente.");
+    }
+  });
+  ["f-lat","f-lon"].forEach(id=>{
+    document.getElementById(id).addEventListener("input", e=>{
+      const disp = document.getElementById(id+"-display");
+      disp.textContent = e.target.value || "--.------";
+    });
+  });
+
+  // ---------- angle needle visual ----------
+  const angleInput = document.getElementById("f-angulo");
+  const needle = document.getElementById("angle-needle");
+  angleInput.addEventListener("input", ()=>{
+    let v = parseFloat(angleInput.value);
+    if(isNaN(v)) v = 0;
+    needle.style.transform = "translate(-50%,-100%) rotate("+v+"deg)";
+  });
+
+  // ---------- generic segmented helper ----------
+  function setSegmentedActive(containerId, value){
+    document.querySelectorAll("#"+containerId+" button").forEach(b=> b.classList.toggle("active", b.dataset.v===value));
+  }
+
+  // ---------- category segmented ----------
+  function showCategoryBlock(cat){
+    document.getElementById("cat-esforco").style.display = cat==="Esforco" ? "block" : "none";
+    document.getElementById("cat-lixo").style.display = cat==="Lixo" ? "block" : "none";
+    document.getElementById("cat-tartaruga").style.display = cat==="Tartaruga" ? "block" : "none";
+    document.getElementById("cat-cetaceos").style.display = cat==="Cetaceos" ? "block" : "none";
+  }
+  document.querySelectorAll("#categoria-segmented button").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      catValue = btn.dataset.v;
+      setSegmentedActive("categoria-segmented", catValue);
+      showCategoryBlock(catValue);
+    });
+  });
+
+  // ---------- lixo recolhido / aglomerado segmented ----------
+  document.querySelectorAll("#lixo-recolhido-segmented button").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      lixoRecolhidoValue = btn.dataset.v;
+      setSegmentedActive("lixo-recolhido-segmented", lixoRecolhidoValue);
+    });
+  });
+  document.querySelectorAll("#lixo-aglomerado-segmented button").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      lixoAglomeradoValue = btn.dataset.v;
+      setSegmentedActive("lixo-aglomerado-segmented", lixoAglomeradoValue);
+    });
+  });
+
+  // ---------- associations chips (tartaruga / cetaceos, independent sets) ----------
+  function wireAssocChips(containerId, selectedSet){
+    document.querySelectorAll("#"+containerId+" .chip").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const v = btn.dataset.v;
+        const chips = document.querySelectorAll("#"+containerId+" .chip");
+        if(v === "0"){
+          selectedSet.clear();
+          selectedSet.add("0");
+          chips.forEach(b=>b.classList.toggle("active", b.dataset.v==="0"));
+          return;
+        }
+        selectedSet.delete("0");
+        document.querySelector("#"+containerId+' .chip[data-v="0"]').classList.remove("active");
+        if(selectedSet.has(v)){ selectedSet.delete(v); btn.classList.remove("active"); }
+        else { selectedSet.add(v); btn.classList.add("active"); }
+      });
+    });
+  }
+  wireAssocChips("assoc-chips-tartaruga", assocTartSelected);
+  wireAssocChips("assoc-chips-cetaceos", assocCetSelected);
+  function renderAssocChips(containerId, selectedSet){
+    document.querySelectorAll("#"+containerId+" .chip").forEach(b=>b.classList.toggle("active", selectedSet.has(b.dataset.v)));
+  }
+
+  // ---------- espécie (select + "Outra") para Tartaruga e Cetáceos ----------
+  function wireEspecieSelect(selectId, outraWrapId, outraInputId){
+    const sel = document.getElementById(selectId);
+    sel.addEventListener("change", ()=>{
+      document.getElementById(outraWrapId).style.display = sel.value==="OUTRA" ? "block" : "none";
+    });
+  }
+  wireEspecieSelect("f-tart-especie", "f-tart-especie-outra-wrap", "f-tart-especie-outra");
+  wireEspecieSelect("f-cet-especie", "f-cet-especie-outra-wrap", "f-cet-especie-outra");
+  wireEspecieSelect("f-tart-comportamento", "f-tart-comportamento-outra-wrap", "f-tart-comportamento-outra");
+  wireEspecieSelect("f-tart-reacao", "f-tart-reacao-outra-wrap", "f-tart-reacao-outra");
+  wireEspecieSelect("f-cet-comportamento", "f-cet-comportamento-outra-wrap", "f-cet-comportamento-outra");
+
+  function resolveEspecie(selectId, outraInputId){
+    const sel = document.getElementById(selectId);
+    if(sel.value === "OUTRA") return document.getElementById(outraInputId).value.trim();
+    return sel.value;
+  }
+  function setEspecieSelect(selectId, outraWrapId, outraInputId, storedValue){
+    const sel = document.getElementById(selectId);
+    const knownValues = Array.from(sel.options).map(o=>o.value);
+    if(storedValue && knownValues.includes(storedValue)){
+      sel.value = storedValue;
+      document.getElementById(outraWrapId).style.display = "none";
+      document.getElementById(outraInputId).value = "";
+    } else if(storedValue){
+      sel.value = "OUTRA";
+      document.getElementById(outraWrapId).style.display = "block";
+      document.getElementById(outraInputId).value = storedValue;
+    } else {
+      sel.value = "";
+      document.getElementById(outraWrapId).style.display = "none";
+      document.getElementById(outraInputId).value = "";
+    }
+  }
+
+  // ---------- fotos segmented (uma instância por categoria: lixo, tartaruga, cetaceos) ----------
+  const FOTOS_CATS = ["lixo","tartaruga","cetaceos"];
+  function fotosSuffixForCat(cat){
+    if(cat==="Lixo") return "lixo";
+    if(cat==="Tartaruga") return "tartaruga";
+    if(cat==="Cetaceos") return "cetaceos";
+    return null;
+  }
+  FOTOS_CATS.forEach(suf=>{
+    document.querySelectorAll("#fotos-segmented-"+suf+" button").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        fotosValue = btn.dataset.v;
+        setSegmentedActive("fotos-segmented-"+suf, fotosValue);
+        document.getElementById("fotos-ref-wrap-"+suf).style.display = fotosValue==="Sim" ? "block" : "none";
+      });
+    });
+  });
+  function resetAllFotosBlocks(){
+    FOTOS_CATS.forEach(suf=>{
+      setSegmentedActive("fotos-segmented-"+suf, null);
+      document.getElementById("fotos-ref-wrap-"+suf).style.display = "none";
+      document.getElementById("f-fotos-ref-"+suf).value = "";
+    });
+    fotosValue = null;
+  }
+  function setFotosForCat(cat, value, refValue){
+    const suf = fotosSuffixForCat(cat);
+    if(!suf) return;
+    fotosValue = value || null;
+    setSegmentedActive("fotos-segmented-"+suf, fotosValue);
+    document.getElementById("fotos-ref-wrap-"+suf).style.display = fotosValue==="Sim" ? "block" : "none";
+    document.getElementById("f-fotos-ref-"+suf).value = refValue || "";
+  }
+  function getFotosRefForCat(cat){
+    const suf = fotosSuffixForCat(cat);
+    if(!suf) return "";
+    return document.getElementById("f-fotos-ref-"+suf).value.trim();
+  }
+
+  // ---------- sheet open/close ----------
+  const sheet = document.getElementById("sheet");
+  function pad(n){ return n.toString().padStart(2,"0"); }
+  function nowHMS(){
+    const d = new Date();
+    return pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds());
+  }
+
+  function resetForm(){
+    editingId = null;
+    document.getElementById("sheet-title").textContent = "Novo registo";
+    document.getElementById("f-data").value = document.getElementById("saida-data").value || new Date().toISOString().slice(0,10);
+    document.getElementById("f-transecto").value = "";
+    document.getElementById("f-hora").value = nowHMS();
+    document.getElementById("f-lat").value = lastFix ? lastFix.lat.toFixed(6) : "";
+    document.getElementById("f-lon").value = lastFix ? lastFix.lon.toFixed(6) : "";
+    document.getElementById("f-lat-display").textContent = lastFix ? lastFix.lat.toFixed(6) : "--.------";
+    document.getElementById("f-lon-display").textContent = lastFix ? lastFix.lon.toFixed(6) : "--.------";
+    document.getElementById("f-velocidade").value = (lastFix && lastFix.speed!==null) ? lastFix.speed.toFixed(1) : "";
+    document.getElementById("f-rumo").value = (lastFix && lastFix.heading!==null) ? Math.round(lastFix.heading) : "";
+    document.getElementById("f-angulo").value = "";
+    needle.style.transform = "translate(-50%,-100%) rotate(0deg)";
+    document.getElementById("f-distancia").value = "";
+
+    catValue = null;
+    setSegmentedActive("categoria-segmented", null);
+    showCategoryBlock(null);
+
+    document.getElementById("f-esf-acao").value = "";
+    document.getElementById("f-esf-obs-bb").value = "";
+    document.getElementById("f-esf-obs-dados").value = "";
+    document.getElementById("f-esf-obs-eb").value = "";
+    document.getElementById("f-esf-beaufort").value = "";
+    document.getElementById("f-esf-vaga").value = "";
+    document.getElementById("f-esf-chuva").value = "";
+    document.getElementById("f-esf-nuvens").value = "";
+    document.getElementById("f-esf-vento").value = "";
+    document.getElementById("f-esf-glare-bb").value = "";
+    document.getElementById("f-esf-glare-proa").value = "";
+    document.getElementById("f-esf-glare-eb").value = "";
+    document.getElementById("f-esf-visibilidade").value = "";
+    document.getElementById("f-esf-notas").value = "";
+
+    document.getElementById("f-lixo-observador").value = "";
+    document.getElementById("f-lixo-glare").value = "";
+    document.getElementById("f-lixo-tipo").value = "";
+    document.getElementById("f-lixo-tamanho").value = "";
+    document.getElementById("f-lixo-cor").value = "";
+    lixoAglomeradoValue = null;
+    setSegmentedActive("lixo-aglomerado-segmented", null);
+    lixoRecolhidoValue = null;
+    setSegmentedActive("lixo-recolhido-segmented", null);
+    document.getElementById("f-lixo-notas").value = "";
+
+    document.getElementById("f-tart-observador").value = "";
+    document.getElementById("f-tart-glare").value = "";
+    setEspecieSelect("f-tart-especie", "f-tart-especie-outra-wrap", "f-tart-especie-outra", "");
+    document.getElementById("f-tart-tamanho").value = "";
+    setEspecieSelect("f-tart-comportamento", "f-tart-comportamento-outra-wrap", "f-tart-comportamento-outra", "");
+    setEspecieSelect("f-tart-reacao", "f-tart-reacao-outra-wrap", "f-tart-reacao-outra", "");
+    assocTartSelected.clear();
+    renderAssocChips("assoc-chips-tartaruga", assocTartSelected);
+    document.getElementById("f-tart-grau-certeza").value = "";
+    document.getElementById("f-tart-notas").value = "";
+
+    document.getElementById("f-cet-observador").value = "";
+    document.getElementById("f-cet-glare").value = "";
+    setEspecieSelect("f-cet-especie", "f-cet-especie-outra-wrap", "f-cet-especie-outra", "");
+    document.getElementById("f-n-min").value = "";
+    document.getElementById("f-n-best").value = "";
+    document.getElementById("f-n-max").value = "";
+    document.getElementById("f-cet-reacao").value = "";
+    setEspecieSelect("f-cet-comportamento", "f-cet-comportamento-outra-wrap", "f-cet-comportamento-outra", "");
+    document.getElementById("f-cet-grau-certeza").value = "";
+    document.getElementById("f-cet-notas").value = "";
+    assocCetSelected.clear();
+    renderAssocChips("assoc-chips-cetaceos", assocCetSelected);
+
+    resetAllFotosBlocks();
+  }
+
+  document.getElementById("fab").addEventListener("click", ()=>{
+    resetForm();
+    sheet.classList.add("open");
+  });
+  document.getElementById("sheet-close").addEventListener("click", ()=> sheet.classList.remove("open"));
+
+  document.getElementById("save-btn").addEventListener("click", ()=>{
+    const transecto = document.getElementById("f-transecto").value.trim();
+    if(!transecto){ alert("Indique o ID do transecto."); return; }
+    if(!catValue){ alert("Selecione a categoria: Esforço Monitorização, Cetáceos, Lixo ou Tartarugas."); return; }
+
+    let especieDisplay = "";
+    if(catValue === "Esforco"){
+      especieDisplay = document.getElementById("f-esf-acao").value.trim();
+      if(!especieDisplay){ alert("Indique a ação do esforço de monitorização."); return; }
+    } else if(catValue === "Lixo"){
+      especieDisplay = document.getElementById("f-lixo-tipo").value.trim();
+      if(!especieDisplay){ alert("Indique o tipo de lixo."); return; }
+    } else if(catValue === "Tartaruga"){
+      especieDisplay = resolveEspecie("f-tart-especie", "f-tart-especie-outra");
+      if(!especieDisplay){ alert("Indique a espécie da tartaruga."); return; }
+    } else if(catValue === "Cetaceos"){
+      especieDisplay = resolveEspecie("f-cet-especie", "f-cet-especie-outra");
+      if(!especieDisplay){ alert("Indique a espécie do cetáceo."); return; }
+    }
+
+    const rec = {
+      id: editingId || (Date.now()+"-"+Math.random().toString(36).slice(2,7)),
+      codigo_saida: document.getElementById("saida-codigo").value.trim(),
+      data: document.getElementById("f-data").value || document.getElementById("saida-data").value,
+      transecto: transecto,
+      hora: document.getElementById("f-hora").value.trim(),
+      lat: document.getElementById("f-lat").value.trim(),
+      lon: document.getElementById("f-lon").value.trim(),
+      velocidade: document.getElementById("f-velocidade").value.trim(),
+      rumo: document.getElementById("f-rumo").value.trim(),
+      angulo: document.getElementById("f-angulo").value.trim(),
+      distancia: document.getElementById("f-distancia").value.trim(),
+
+      categoria: catValue,
+      especie: especieDisplay,
+
+      esf_acao: catValue==="Esforco" ? document.getElementById("f-esf-acao").value.trim() : "",
+      esf_obs_bb: catValue==="Esforco" ? document.getElementById("f-esf-obs-bb").value.trim() : "",
+      esf_obs_dados: catValue==="Esforco" ? document.getElementById("f-esf-obs-dados").value.trim() : "",
+      esf_obs_eb: catValue==="Esforco" ? document.getElementById("f-esf-obs-eb").value.trim() : "",
+      esf_beaufort: catValue==="Esforco" ? document.getElementById("f-esf-beaufort").value.trim() : "",
+      esf_vaga: catValue==="Esforco" ? document.getElementById("f-esf-vaga").value.trim() : "",
+      esf_chuva: catValue==="Esforco" ? document.getElementById("f-esf-chuva").value.trim() : "",
+      esf_nuvens: catValue==="Esforco" ? document.getElementById("f-esf-nuvens").value.trim() : "",
+      esf_vento: catValue==="Esforco" ? document.getElementById("f-esf-vento").value.trim() : "",
+      esf_glare_bb: catValue==="Esforco" ? document.getElementById("f-esf-glare-bb").value.trim() : "",
+      esf_glare_proa: catValue==="Esforco" ? document.getElementById("f-esf-glare-proa").value.trim() : "",
+      esf_glare_eb: catValue==="Esforco" ? document.getElementById("f-esf-glare-eb").value.trim() : "",
+      esf_visibilidade: catValue==="Esforco" ? document.getElementById("f-esf-visibilidade").value.trim() : "",
+      esf_notas: catValue==="Esforco" ? document.getElementById("f-esf-notas").value.trim() : "",
+
+      lixo_observador: catValue==="Lixo" ? document.getElementById("f-lixo-observador").value.trim() : "",
+      lixo_glare: catValue==="Lixo" ? document.getElementById("f-lixo-glare").value.trim() : "",
+      lixo_tipo: catValue==="Lixo" ? document.getElementById("f-lixo-tipo").value.trim() : "",
+      lixo_tamanho: catValue==="Lixo" ? document.getElementById("f-lixo-tamanho").value.trim() : "",
+      lixo_cor: catValue==="Lixo" ? document.getElementById("f-lixo-cor").value.trim() : "",
+      lixo_aglomerado: catValue==="Lixo" ? (lixoAglomeradoValue||"") : "",
+      lixo_recolhido: catValue==="Lixo" ? (lixoRecolhidoValue||"") : "",
+      lixo_notas: catValue==="Lixo" ? document.getElementById("f-lixo-notas").value.trim() : "",
+
+      tartaruga_observador: catValue==="Tartaruga" ? document.getElementById("f-tart-observador").value.trim() : "",
+      tartaruga_glare: catValue==="Tartaruga" ? document.getElementById("f-tart-glare").value.trim() : "",
+      tartaruga_especie: catValue==="Tartaruga" ? resolveEspecie("f-tart-especie", "f-tart-especie-outra") : "",
+      tartaruga_tamanho: catValue==="Tartaruga" ? document.getElementById("f-tart-tamanho").value.trim() : "",
+      tartaruga_comportamento: catValue==="Tartaruga" ? resolveEspecie("f-tart-comportamento", "f-tart-comportamento-outra") : "",
+      tartaruga_reacao: catValue==="Tartaruga" ? resolveEspecie("f-tart-reacao", "f-tart-reacao-outra") : "",
+      tartaruga_associacoes: catValue==="Tartaruga" ? Array.from(assocTartSelected).sort().join(",") : "",
+      tartaruga_grau_certeza: catValue==="Tartaruga" ? document.getElementById("f-tart-grau-certeza").value.trim() : "",
+      tartaruga_notas: catValue==="Tartaruga" ? document.getElementById("f-tart-notas").value.trim() : "",
+
+      cet_observador: catValue==="Cetaceos" ? document.getElementById("f-cet-observador").value.trim() : "",
+      cet_glare: catValue==="Cetaceos" ? document.getElementById("f-cet-glare").value.trim() : "",
+      cet_especie: catValue==="Cetaceos" ? resolveEspecie("f-cet-especie", "f-cet-especie-outra") : "",
+      cet_n_min: catValue==="Cetaceos" ? document.getElementById("f-n-min").value.trim() : "",
+      cet_n_best: catValue==="Cetaceos" ? document.getElementById("f-n-best").value.trim() : "",
+      cet_n_max: catValue==="Cetaceos" ? document.getElementById("f-n-max").value.trim() : "",
+      cet_reacao: catValue==="Cetaceos" ? document.getElementById("f-cet-reacao").value.trim() : "",
+      cet_comportamento: catValue==="Cetaceos" ? resolveEspecie("f-cet-comportamento", "f-cet-comportamento-outra") : "",
+      cet_associacoes: catValue==="Cetaceos" ? Array.from(assocCetSelected).sort().join(",") : "",
+      cet_grau_certeza: catValue==="Cetaceos" ? document.getElementById("f-cet-grau-certeza").value.trim() : "",
+      cet_notas: catValue==="Cetaceos" ? document.getElementById("f-cet-notas").value.trim() : "",
+
+      fotos: fotosValue || "",
+      fotos_ref: fotosValue==="Sim" ? getFotosRefForCat(catValue) : "",
+
+      criado_em: new Date().toISOString()
+    };
+
+    if(editingId){
+      const idx = registos.findIndex(r=>r.id===editingId);
+      if(idx>-1) registos[idx] = rec;
+    } else {
+      registos.push(rec);
+    }
+    persist();
+    sheet.classList.remove("open");
+    render();
+  });
+
+  function editEntry(id){
+    const r = registos.find(x=>x.id===id);
+    if(!r) return;
+    editingId = id;
+    document.getElementById("sheet-title").textContent = "Editar registo";
+    document.getElementById("f-data").value = r.data || "";
+    document.getElementById("f-transecto").value = r.transecto;
+    document.getElementById("f-hora").value = r.hora;
+    document.getElementById("f-lat").value = r.lat;
+    document.getElementById("f-lon").value = r.lon;
+    document.getElementById("f-lat-display").textContent = r.lat || "--.------";
+    document.getElementById("f-lon-display").textContent = r.lon || "--.------";
+    document.getElementById("f-velocidade").value = r.velocidade || "";
+    document.getElementById("f-rumo").value = r.rumo || "";
+    document.getElementById("f-angulo").value = r.angulo;
+    let v = parseFloat(r.angulo); if(isNaN(v)) v=0;
+    needle.style.transform = "translate(-50%,-100%) rotate("+v+"deg)";
+    document.getElementById("f-distancia").value = r.distancia;
+
+    catValue = r.categoria || null;
+    setSegmentedActive("categoria-segmented", catValue);
+    showCategoryBlock(catValue);
+
+    document.getElementById("f-esf-acao").value = r.esf_acao || "";
+    document.getElementById("f-esf-obs-bb").value = r.esf_obs_bb || "";
+    document.getElementById("f-esf-obs-dados").value = r.esf_obs_dados || "";
+    document.getElementById("f-esf-obs-eb").value = r.esf_obs_eb || "";
+    document.getElementById("f-esf-beaufort").value = r.esf_beaufort || "";
+    document.getElementById("f-esf-vaga").value = r.esf_vaga || "";
+    document.getElementById("f-esf-chuva").value = r.esf_chuva || "";
+    document.getElementById("f-esf-nuvens").value = r.esf_nuvens || "";
+    document.getElementById("f-esf-vento").value = r.esf_vento || "";
+    document.getElementById("f-esf-glare-bb").value = r.esf_glare_bb || "";
+    document.getElementById("f-esf-glare-proa").value = r.esf_glare_proa || "";
+    document.getElementById("f-esf-glare-eb").value = r.esf_glare_eb || "";
+    document.getElementById("f-esf-visibilidade").value = r.esf_visibilidade || "";
+    document.getElementById("f-esf-notas").value = r.esf_notas || "";
+
+    document.getElementById("f-lixo-observador").value = r.lixo_observador || "";
+    document.getElementById("f-lixo-glare").value = r.lixo_glare || "";
+    document.getElementById("f-lixo-tipo").value = r.lixo_tipo || "";
+    document.getElementById("f-lixo-tamanho").value = r.lixo_tamanho || "";
+    document.getElementById("f-lixo-cor").value = r.lixo_cor || "";
+    lixoAglomeradoValue = r.lixo_aglomerado || null;
+    setSegmentedActive("lixo-aglomerado-segmented", lixoAglomeradoValue);
+    lixoRecolhidoValue = r.lixo_recolhido || null;
+    setSegmentedActive("lixo-recolhido-segmented", lixoRecolhidoValue);
+    document.getElementById("f-lixo-notas").value = r.lixo_notas || "";
+
+    document.getElementById("f-tart-observador").value = r.tartaruga_observador || "";
+    document.getElementById("f-tart-glare").value = r.tartaruga_glare || "";
+    setEspecieSelect("f-tart-especie", "f-tart-especie-outra-wrap", "f-tart-especie-outra", r.tartaruga_especie || "");
+    document.getElementById("f-tart-tamanho").value = r.tartaruga_tamanho || "";
+    setEspecieSelect("f-tart-comportamento", "f-tart-comportamento-outra-wrap", "f-tart-comportamento-outra", r.tartaruga_comportamento || "");
+    setEspecieSelect("f-tart-reacao", "f-tart-reacao-outra-wrap", "f-tart-reacao-outra", r.tartaruga_reacao || "");
+    assocTartSelected.clear();
+    (r.tartaruga_associacoes||"").split(",").filter(Boolean).forEach(v=>assocTartSelected.add(v));
+    renderAssocChips("assoc-chips-tartaruga", assocTartSelected);
+    document.getElementById("f-tart-grau-certeza").value = r.tartaruga_grau_certeza || "";
+    document.getElementById("f-tart-notas").value = r.tartaruga_notas || "";
+
+    document.getElementById("f-cet-observador").value = r.cet_observador || "";
+    document.getElementById("f-cet-glare").value = r.cet_glare || "";
+    setEspecieSelect("f-cet-especie", "f-cet-especie-outra-wrap", "f-cet-especie-outra", r.cet_especie || "");
+    document.getElementById("f-n-min").value = r.cet_n_min || "";
+    document.getElementById("f-n-best").value = r.cet_n_best || "";
+    document.getElementById("f-n-max").value = r.cet_n_max || "";
+    document.getElementById("f-cet-reacao").value = r.cet_reacao || "";
+    setEspecieSelect("f-cet-comportamento", "f-cet-comportamento-outra-wrap", "f-cet-comportamento-outra", r.cet_comportamento || "");
+    assocCetSelected.clear();
+    (r.cet_associacoes||"").split(",").filter(Boolean).forEach(v=>assocCetSelected.add(v));
+    renderAssocChips("assoc-chips-cetaceos", assocCetSelected);
+    document.getElementById("f-cet-grau-certeza").value = r.cet_grau_certeza || "";
+    document.getElementById("f-cet-notas").value = r.cet_notas || "";
+
+    resetAllFotosBlocks();
+    setFotosForCat(r.categoria, r.fotos, r.fotos_ref);
+
+    sheet.classList.add("open");
+  }
+
+  function deleteEntry(id){
+    if(!confirm("Eliminar este registo?")) return;
+    registos = registos.filter(r=>r.id!==id);
+    persist();
+    render();
+  }
+
+  function escapeHtml(s){
+    return (s===undefined||s===null?"":String(s)).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  function detailsForRecord(r){
+    const rows = [];
+
+    if(r.categoria === "Esforco"){
+      rows.push(`<div>Beaufort <b>${escapeHtml(codeLabel(BEAUFORT_LABELS, r.esf_beaufort))||"—"}</b></div>`);
+      rows.push(`<div>Vaga <b>${escapeHtml(codeLabel(VAGA_LABELS, r.esf_vaga))||"—"}</b></div>`);
+      rows.push(`<div>Chuva <b>${escapeHtml(codeLabel(CHUVA_LABELS, r.esf_chuva))||"—"}</b></div>`);
+      rows.push(`<div>Nuvens <b>${escapeHtml(r.esf_nuvens)||"—"}/8</b></div>`);
+      rows.push(`<div>Vento <b>${escapeHtml(codeLabel(VENTO_LABELS, r.esf_vento))||"—"}</b></div>`);
+      rows.push(`<div>Visibilidade <b>${escapeHtml(codeLabel(VISIB_LABELS, r.esf_visibilidade))||"—"}</b></div>`);
+      rows.push(`<div style="grid-column:1/-1;">Glare BB/Proa/EB <b>${escapeHtml(codeLabel(GLARE_LABELS, r.esf_glare_bb))||"—"} / ${escapeHtml(codeLabel(GLARE_LABELS, r.esf_glare_proa))||"—"} / ${escapeHtml(codeLabel(GLARE_LABELS, r.esf_glare_eb))||"—"}</b></div>`);
+      rows.push(`<div style="grid-column:1/-1;">Observadores BB/Dados/EB <b>${escapeHtml(r.esf_obs_bb)||"—"} / ${escapeHtml(r.esf_obs_dados)||"—"} / ${escapeHtml(r.esf_obs_eb)||"—"}</b></div>`);
+      if(r.esf_notas) rows.push(`<div style="grid-column:1/-1;">Notas <b>${escapeHtml(r.esf_notas)}</b></div>`);
+      return rows.join("");
+    }
+
+    rows.push(`<div>Ângulo <b>${escapeHtml(r.angulo)||"—"}°</b></div>`);
+    rows.push(`<div>Distância <b>${escapeHtml(r.distancia)||"—"} m</b></div>`);
+
+    if(r.categoria === "Lixo"){
+      rows.push(`<div>Observador <b>${escapeHtml(r.lixo_observador)||"—"}</b></div>`);
+      rows.push(`<div>Glare <b>${escapeHtml(codeLabel(GLARE_LABELS, r.lixo_glare))||"—"}</b></div>`);
+      rows.push(`<div>Tamanho <b>${escapeHtml(r.lixo_tamanho)||"—"}</b></div>`);
+      rows.push(`<div>Cor <b>${escapeHtml(r.lixo_cor)||"—"}</b></div>`);
+      rows.push(`<div>Aglomerado <b>${escapeHtml(r.lixo_aglomerado)||"—"}</b></div>`);
+      rows.push(`<div>Recolhido <b>${escapeHtml(r.lixo_recolhido)||"—"}</b></div>`);
+      if(r.lixo_notas) rows.push(`<div style="grid-column:1/-1;">Notas <b>${escapeHtml(r.lixo_notas)}</b></div>`);
+    } else if(r.categoria === "Tartaruga"){
+      rows.push(`<div>Observador <b>${escapeHtml(r.tartaruga_observador)||"—"}</b></div>`);
+      rows.push(`<div>Glare <b>${escapeHtml(codeLabel(GLARE_LABELS, r.tartaruga_glare))||"—"}</b></div>`);
+      rows.push(`<div>Tamanho <b>${escapeHtml(r.tartaruga_tamanho)||"—"}</b></div>`);
+      rows.push(`<div>Grau certeza <b>${escapeHtml(codeLabel(GRAU_CERTEZA_LABELS, r.tartaruga_grau_certeza))||"—"}</b></div>`);
+      rows.push(`<div style="grid-column:1/-1;">Comportamento <b>${escapeHtml(r.tartaruga_comportamento)||"—"}</b></div>`);
+      rows.push(`<div style="grid-column:1/-1;">Reação <b>${escapeHtml(r.tartaruga_reacao)||"—"}</b></div>`);
+      const assocStr = (r.tartaruga_associacoes||"").split(",").filter(Boolean).map(v=>ASSOC_LABELS[v]).join(", ") || "—";
+      rows.push(`<div style="grid-column:1/-1;">Associações <b>${escapeHtml(assocStr)}</b></div>`);
+      if(r.tartaruga_notas) rows.push(`<div style="grid-column:1/-1;">Notas <b>${escapeHtml(r.tartaruga_notas)}</b></div>`);
+    } else if(r.categoria === "Cetaceos"){
+      rows.push(`<div>Observador <b>${escapeHtml(r.cet_observador)||"—"}</b></div>`);
+      rows.push(`<div>Glare <b>${escapeHtml(codeLabel(GLARE_LABELS, r.cet_glare))||"—"}</b></div>`);
+      rows.push(`<div>Nº (Mín/Best/Máx) <b>${escapeHtml(r.cet_n_min)||"—"}/${escapeHtml(r.cet_n_best)||"—"}/${escapeHtml(r.cet_n_max)||"—"}</b></div>`);
+      rows.push(`<div>Grau certeza <b>${escapeHtml(codeLabel(GRAU_CERTEZA_LABELS, r.cet_grau_certeza))||"—"}</b></div>`);
+      rows.push(`<div style="grid-column:1/-1;">Comportamento <b>${escapeHtml(r.cet_comportamento)||"—"}</b></div>`);
+      rows.push(`<div style="grid-column:1/-1;">Reação <b>${escapeHtml(r.cet_reacao)||"—"}</b></div>`);
+      const assocStr = (r.cet_associacoes||"").split(",").filter(Boolean).map(v=>ASSOC_LABELS[v]).join(", ") || "—";
+      rows.push(`<div style="grid-column:1/-1;">Associações <b>${escapeHtml(assocStr)}</b></div>`);
+      if(r.cet_notas) rows.push(`<div style="grid-column:1/-1;">Notas <b>${escapeHtml(r.cet_notas)}</b></div>`);
+    }
+
+    rows.push(`<div>Fotos <b>${escapeHtml(r.fotos)||"—"}</b></div>`);
+    if(r.fotos === "Sim" && r.fotos_ref) rows.push(`<div>Ref. fotos <b>${escapeHtml(r.fotos_ref)}</b></div>`);
+    return rows.join("");
+  }
+
+  function render(){
+    const codigo = document.getElementById("saida-codigo").value.trim();
+    const data = document.getElementById("saida-data").value;
+    const list = document.getElementById("log-list");
+    const filtered = registos.filter(r => r.codigo_saida===codigo && r.data===data)
+                              .sort((a,b)=> a.criado_em < b.criado_em ? -1 : 1);
+    document.getElementById("count-badge").textContent = filtered.length;
+
+    if(filtered.length === 0){
+      list.innerHTML = '<div class="empty"><span class="big">🌊</span>Sem registos para esta saída ainda.<br>Toque em "Registar avistamento" para começar.</div>';
+      return;
+    }
+
+    list.innerHTML = filtered.map((r, i)=>{
+      const catLabel = CAT_LABELS[r.categoria] || "—";
+      const titleText = r.categoria==="Esforco" ? codeLabel(ACAO_LABELS, r.especie) : r.especie;
+      return `
+      <div class="entry">
+        <div class="entry-top">
+          <div class="entry-num">#${i+1}</div>
+          <div class="entry-cat ${escapeHtml(r.categoria||"")}">${escapeHtml(catLabel)}</div>
+          <div class="entry-main">
+            <div class="entry-species">${escapeHtml(titleText)} <span style="color:var(--foam-dim);font-weight:400;">· T${escapeHtml(r.transecto)}</span></div>
+            <div class="entry-sub">${escapeHtml(r.hora)} · ${escapeHtml(r.lat)}, ${escapeHtml(r.lon)} · ${escapeHtml(r.velocidade)||"—"}kt · ${escapeHtml(r.rumo)||"—"}°</div>
+          </div>
+          <div class="entry-photo">${r.fotos==="Sim" ? "📷" : ""}</div>
+        </div>
+        <div class="entry-details">
+          ${detailsForRecord(r)}
+        </div>
+        <div class="entry-actions">
+          <button data-edit="${r.id}">Editar</button>
+          <button data-del="${r.id}" class="del">Eliminar</button>
+        </div>
+      </div>`;
+    }).join("");
+
+    list.querySelectorAll("[data-edit]").forEach(b=> b.addEventListener("click", ()=>editEntry(b.dataset.edit)));
+    list.querySelectorAll("[data-del]").forEach(b=> b.addEventListener("click", ()=>deleteEntry(b.dataset.del)));
+  }
+
+  // ---------- export / import (JSON backup) ----------
+  function toCSV(rows){
+    const headers = ["id","codigo_saida","data","transecto","hora","lat","lon","velocidade","rumo","angulo","distancia","categoria","especie",
+      "esf_acao","esf_obs_bb","esf_obs_dados","esf_obs_eb","esf_beaufort","esf_vaga","esf_chuva","esf_nuvens","esf_vento","esf_glare_bb","esf_glare_proa","esf_glare_eb","esf_visibilidade","esf_notas",
+      "lixo_observador","lixo_glare","lixo_tipo","lixo_tamanho","lixo_cor","lixo_aglomerado","lixo_recolhido","lixo_notas",
+      "tartaruga_observador","tartaruga_glare","tartaruga_especie","tartaruga_tamanho","tartaruga_comportamento","tartaruga_reacao","tartaruga_associacoes","tartaruga_grau_certeza","tartaruga_notas",
+      "cet_observador","cet_glare","cet_especie","cet_n_min","cet_n_best","cet_n_max","cet_comportamento","cet_reacao","cet_associacoes","cet_grau_certeza","cet_notas",
+      "fotos","fotos_ref","criado_em"];
+    const escape = v => {
+      v = (v===undefined||v===null) ? "" : String(v);
+      if(/[;"\n]/.test(v)) v = '"'+v.replace(/"/g,'""')+'"';
+      return v;
+    };
+    const lines = [headers.join(";")];
+    rows.forEach(r=> lines.push(headers.map(h=>escape(r[h])).join(";")));
+    return lines.join("\r\n");
+  }
+
+  function download(filename, content, mime){
+    const blob = new Blob([content], {type: mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  }
+
+  document.getElementById("btn-export-csv").addEventListener("click", ()=>{
+    if(registos.length===0){ alert("Ainda não há registos para exportar."); return; }
+    const csv = "\uFEFF" + toCSV(registos);
+    download("avistamentos_"+new Date().toISOString().slice(0,10)+".csv", csv, "text/csv;charset=utf-8");
+  });
+
+  document.getElementById("btn-export-json").addEventListener("click", ()=>{
+    download("avistamentos_backup_"+new Date().toISOString().slice(0,10)+".json", JSON.stringify(registos, null, 2), "application/json");
+  });
+
+  function parseCSVText(text){
+    const clean = text.replace(/^\uFEFF/, "");
+    const rows = [];
+    let field = "", row = [], inQuotes = false, i = 0;
+    const len = clean.length;
+    while(i < len){
+      const c = clean[i];
+      if(inQuotes){
+        if(c === '"'){
+          if(clean[i+1] === '"'){ field += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += c; i++; continue;
+      } else {
+        if(c === '"'){ inQuotes = true; i++; continue; }
+        if(c === ";"){ row.push(field); field = ""; i++; continue; }
+        if(c === "\r"){ i++; continue; }
+        if(c === "\n"){ row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+        field += c; i++; continue;
+      }
+    }
+    if(field.length > 0 || row.length > 0){ row.push(field); rows.push(row); }
+    return rows.filter(r => !(r.length===1 && r[0]===""));
+  }
+
+  function simpleHash(str){
+    let h = 0;
+    for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
+    return "h"+Math.abs(h).toString(36);
+  }
+
+  function csvToRegistos(text){
+    const rows = parseCSVText(text);
+    if(rows.length < 2) return [];
+    const headers = rows[0].map(h=>h.trim());
+    const out = [];
+    for(let i=1;i<rows.length;i++){
+      const cells = rows[i];
+      if(cells.length===1 && cells[0].trim()==="") continue;
+      const obj = {};
+      headers.forEach((h, j)=>{ obj[h] = cells[j] !== undefined ? cells[j] : ""; });
+      if(!obj.id || !obj.id.trim()){
+        obj.id = "csv-" + simpleHash(headers.map(h=>obj[h]).join("|"));
+      }
+      out.push(obj);
+    }
+    return out;
+  }
+
+  document.getElementById("btn-import-json").addEventListener("click", ()=>{
+    document.getElementById("file-import").click();
+  });
+  document.getElementById("file-import").addEventListener("change", (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const isCSV = /\.csv$/i.test(file.name) || file.type === "text/csv";
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const imported = isCSV ? csvToRegistos(reader.result) : JSON.parse(reader.result);
+        if(!Array.isArray(imported)) throw new Error("formato inválido");
+        const existingIds = new Set(registos.map(r=>r.id));
+        let added = 0;
+        imported.forEach(r=>{ if(r && r.id && !existingIds.has(r.id)){ registos.push(r); existingIds.add(r.id); added++; } });
+        persist();
+        render();
+        alert(added+" registo(s) importado(s)"+(isCSV ? " a partir do CSV." : "."));
+      }catch(err){
+        alert("Não foi possível importar este ficheiro.");
+      }
+      e.target.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  // ---------- GPX import (eTrex) ----------
+  const gpxSheet = document.getElementById("gpx-sheet");
+
+  function parseGPX(xmlText){
+    const doc = new DOMParser().parseFromString(xmlText, "application/xml");
+    if(doc.getElementsByTagName("parsererror").length){ return []; }
+    const points = [];
+    function extract(tag){
+      const els = doc.getElementsByTagName(tag);
+      for(let i=0;i<els.length;i++){
+        const el = els[i];
+        const lat = parseFloat(el.getAttribute("lat"));
+        const lon = parseFloat(el.getAttribute("lon"));
+        const timeEl = el.getElementsByTagName("time")[0];
+        const nameEl = el.getElementsByTagName("name")[0];
+        if(timeEl && !isNaN(lat) && !isNaN(lon)){
+          const t = new Date(timeEl.textContent);
+          if(!isNaN(t.getTime())){
+            points.push({ time: t, lat: lat, lon: lon, name: nameEl ? nameEl.textContent : "" });
+          }
+        }
+      }
+    }
+    extract("wpt");
+    extract("trkpt");
+    points.sort((a,b)=> a.time - b.time);
+    return points;
+  }
+
+  function fmtTime(d){
+    return pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds());
+  }
+
+  function computeMatches(){
+    const codigo = document.getElementById("saida-codigo").value.trim();
+    const data = document.getElementById("saida-data").value;
+    const offsetMin = parseFloat(document.getElementById("gpx-offset").value) || 0;
+    const filtered = registos.filter(r => r.codigo_saida===codigo && r.data===data)
+                              .sort((a,b)=> a.criado_em < b.criado_em ? -1 : 1);
+
+    gpxMatches = filtered.map(r=>{
+      const regTime = new Date((r.data||data) + "T" + (r.hora || "00:00:00"));
+      let best = null, bestDelta = Infinity;
+      gpxPoints.forEach(p=>{
+        const pAdj = p.time.getTime() + offsetMin*60000;
+        const delta = (pAdj - regTime.getTime())/1000;
+        if(Math.abs(delta) < Math.abs(bestDelta)){ bestDelta = delta; best = p; }
+      });
+      return { reg: r, point: best, deltaSec: best ? bestDelta : null };
+    });
+  }
+
+  function renderGpxMatches(){
+    const container = document.getElementById("gpx-matches");
+    document.getElementById("gpx-summary").innerHTML =
+      `<b>${gpxPoints.length}</b> ponto(s) lido(s) do ficheiro GPX · <b>${gpxMatches.length}</b> registo(s) desta saída para associar`;
+
+    if(gpxMatches.length === 0){
+      container.innerHTML = '<div class="empty">Sem registos nesta saída para associar. Verifica o código de saída e a data no topo antes de importar.</div>';
+      return;
+    }
+
+    container.innerHTML = gpxMatches.map((m, i)=>{
+      if(!m.point){
+        return `<div class="match-row nomatch"><div class="mm-main"><div class="mm-title">#${i+1} · ${escapeHtml(m.reg.especie)}</div><div class="mm-sub">Hora do registo: ${escapeHtml(m.reg.hora)} · sem pontos GPX disponíveis</div></div></div>`;
+      }
+      const warn = Math.abs(m.deltaSec) > 120;
+      const checked = !warn ? "checked" : "";
+      return `
+        <div class="match-row ${warn?'warn':''}" data-idx="${i}">
+          <input type="checkbox" ${checked}>
+          <div class="mm-main">
+            <div class="mm-title">#${i+1} · ${escapeHtml(m.reg.especie)} <span style="color:var(--foam-dim);font-weight:400;">(T${escapeHtml(m.reg.transecto)})</span></div>
+            <div class="mm-sub">
+              Registo: ${escapeHtml(m.reg.hora)} &nbsp;→&nbsp; Waypoint: ${fmtTime(m.point.time)} ${m.point.name ? "("+escapeHtml(m.point.name)+")" : ""}<br>
+              Diferença: <span class="mm-delta">${m.deltaSec>=0?"+":""}${Math.round(m.deltaSec)}s</span> · Nova posição: ${m.point.lat.toFixed(6)}, ${m.point.lon.toFixed(6)}
+            </div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  document.getElementById("btn-import-gpx").addEventListener("click", ()=>{
+    document.getElementById("file-import-gpx").click();
+  });
+
+  document.getElementById("file-import-gpx").addEventListener("change", (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const points = parseGPX(reader.result);
+      if(points.length === 0){
+        alert("Não foi possível ler pontos com hora válida deste ficheiro GPX.");
+        e.target.value = "";
+        return;
+      }
+      gpxPoints = points;
+      document.getElementById("gpx-offset").value = 0;
+      computeMatches();
+      renderGpxMatches();
+      gpxSheet.classList.add("open");
+      e.target.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById("gpx-offset").addEventListener("input", ()=>{
+    computeMatches();
+    renderGpxMatches();
+  });
+
+  document.getElementById("gpx-sheet-close").addEventListener("click", ()=> gpxSheet.classList.remove("open"));
+
+  document.getElementById("gpx-apply-btn").addEventListener("click", ()=>{
+    const rows = document.querySelectorAll("#gpx-matches .match-row[data-idx]");
+    let applied = 0;
+    rows.forEach(row=>{
+      const cb = row.querySelector("input[type=checkbox]");
+      if(!cb || !cb.checked) return;
+      const idx = parseInt(row.dataset.idx, 10);
+      const m = gpxMatches[idx];
+      if(!m || !m.point) return;
+      const target = registos.find(r=>r.id===m.reg.id);
+      if(target){
+        target.lat = m.point.lat.toFixed(6);
+        target.lon = m.point.lon.toFixed(6);
+        applied++;
+      }
+    });
+    if(applied>0){ persist(); render(); }
+    gpxSheet.classList.remove("open");
+    alert(applied+" posição(ões) atualizada(s) a partir do eTrex.");
+  });
+
+  // ---------- mapa da saída ----------
+  const mapSheet = document.getElementById("map-sheet");
+
+  function getFilteredRegistos(){
+    const codigo = document.getElementById("saida-codigo").value.trim();
+    const data = document.getElementById("saida-data").value;
+    return registos.filter(r => r.codigo_saida===codigo && r.data===data)
+                    .sort((a,b)=> a.criado_em < b.criado_em ? -1 : 1);
+  }
+
+  function renderMap(){
+    const withPos = getFilteredRegistos().filter(r=>{
+      const lat = parseFloat(r.lat), lon = parseFloat(r.lon);
+      return !isNaN(lat) && !isNaN(lon);
+    });
+    const wrap = document.getElementById("map-canvas-wrap");
+    const emptyEl = document.getElementById("map-empty");
+    const legendEl = document.getElementById("map-legend");
+    document.getElementById("map-selected").style.display = "none";
+
+    if(withPos.length === 0){
+      wrap.innerHTML = "";
+      legendEl.innerHTML = "";
+      emptyEl.style.display = "block";
+      return;
+    }
+    emptyEl.style.display = "none";
+
+    const lats = withPos.map(r=>parseFloat(r.lat));
+    const lons = withPos.map(r=>parseFloat(r.lon));
+    const latMin = Math.min(...lats), latMax = Math.max(...lats);
+    const lonMin = Math.min(...lons), lonMax = Math.max(...lons);
+    const avgLat = (latMin+latMax)/2;
+    const cosLat = Math.max(0.2, Math.cos(avgLat*Math.PI/180));
+
+    const minRange = 0.002;
+    let xRange = Math.max((lonMax-lonMin)*cosLat, minRange);
+    let yRange = Math.max((latMax-latMin), minRange);
+
+    const W = 320, H = 320, pad = 26;
+    const availW = W - pad*2, availH = H - pad*2;
+    const scale = Math.min(availW/xRange, availH/yRange);
+    const drawW = xRange*scale, drawH = yRange*scale;
+    const offX = pad + (availW-drawW)/2;
+    const offY = pad + (availH-drawH)/2;
+
+    function project(lat, lon){
+      const x = offX + (lon - lonMin)*cosLat*scale;
+      const y = offY + (latMax - lat)*scale;
+      return [x,y];
+    }
+
+    let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    svg += `<rect x="1" y="1" width="${W-2}" height="${H-2}" fill="none" stroke="#1E5A67" stroke-width="1"/>`;
+    svg += `<defs><marker id="arrowhead" markerWidth="6" markerHeight="6" refX="3" refY="5" orient="auto"><path d="M0,0 L3,6 L6,0 z" fill="#9FB6BC"/></marker></defs>`;
+    svg += `<text x="${W-16}" y="14" font-size="10" fill="#9FB6BC" text-anchor="middle">N</text>`;
+    svg += `<line x1="${W-16}" y1="30" x2="${W-16}" y2="18" stroke="#9FB6BC" stroke-width="1.5" marker-end="url(#arrowhead)"/>`;
+
+    const pathPts = withPos.map(r=>project(parseFloat(r.lat), parseFloat(r.lon)));
+    let pathD = pathPts.map((p,i)=> (i===0?"M":"L")+p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
+    svg += `<path d="${pathD}" fill="none" stroke="#1E5A67" stroke-width="1" stroke-dasharray="3,3"/>`;
+
+    withPos.forEach((r, idx)=>{
+      const [x,y] = pathPts[idx];
+      const color = CAT_COLORS[r.categoria] || "#F0A84A";
+      svg += `<circle class="map-point" data-idx="${idx}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6" fill="${color}" stroke="#081820" stroke-width="1.5"/>`;
+    });
+    svg += `</svg>`;
+    wrap.innerHTML = svg;
+
+    const usedCats = Array.from(new Set(withPos.map(r=>r.categoria)));
+    legendEl.innerHTML = usedCats.map(c=>
+      `<div class="lg-item"><span class="lg-dot" style="background:${CAT_COLORS[c]||'#F0A84A'}"></span>${escapeHtml(CAT_LABELS[c]||c)}</div>`
+    ).join("");
+
+    wrap.querySelectorAll(".map-point").forEach(el=>{
+      el.addEventListener("click", ()=>{
+        const idx = parseInt(el.dataset.idx, 10);
+        const r = withPos[idx];
+        const title = r.categoria==="Esforco" ? codeLabel(ACAO_LABELS, r.especie) : r.especie;
+        const mapsUrl = "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(r.lat+","+r.lon);
+        const box = document.getElementById("map-selected");
+        box.style.display = "block";
+        box.innerHTML =
+          `<b>${escapeHtml(CAT_LABELS[r.categoria]||"")}</b> · ${escapeHtml(title||"—")}<br>`+
+          `${escapeHtml(r.hora)} · ${escapeHtml(r.lat)}, ${escapeHtml(r.lon)}<br>`+
+          `<a href="${mapsUrl}" target="_blank" rel="noopener" style="color:var(--sun);">Abrir no Google Maps (precisa de ligação)</a>`;
+      });
+    });
+  }
+
+  document.getElementById("btn-map").addEventListener("click", ()=>{
+    renderMap();
+    mapSheet.classList.add("open");
+  });
+  document.getElementById("map-sheet-close").addEventListener("click", ()=> mapSheet.classList.remove("open"));
+
+  // ---------- relatório / PDF (via impressão do sistema) ----------
+  function resumoRegisto(r){
+    if(r.categoria === "Esforco"){
+      return `Beaufort ${codeLabel(BEAUFORT_LABELS,r.esf_beaufort)||"—"} · Vaga ${codeLabel(VAGA_LABELS,r.esf_vaga)||"—"} · Vento ${codeLabel(VENTO_LABELS,r.esf_vento)||"—"} · Visibilidade ${codeLabel(VISIB_LABELS,r.esf_visibilidade)||"—"}`;
+    }
+    if(r.categoria === "Lixo"){
+      return `Tipo ${r.lixo_tipo||"—"} · Tamanho ${r.lixo_tamanho||"—"} · Cor ${r.lixo_cor||"—"} · Aglomerado ${r.lixo_aglomerado||"—"} · Recolhido ${r.lixo_recolhido||"—"}`;
+    }
+    if(r.categoria === "Tartaruga"){
+      const assoc = (r.tartaruga_associacoes||"").split(",").filter(Boolean).map(v=>ASSOC_LABELS[v]).join(", ");
+      return `Tamanho ${r.tartaruga_tamanho||"—"} · Comport. ${r.tartaruga_comportamento||"—"} · Grau certeza ${codeLabel(GRAU_CERTEZA_LABELS,r.tartaruga_grau_certeza)||"—"} · Assoc. ${assoc||"—"}`;
+    }
+    if(r.categoria === "Cetaceos"){
+      const assoc = (r.cet_associacoes||"").split(",").filter(Boolean).map(v=>ASSOC_LABELS[v]).join(", ");
+      return `Nº ${r.cet_n_min||"—"}/${r.cet_n_best||"—"}/${r.cet_n_max||"—"} · Comport. ${r.cet_comportamento||"—"} · Grau certeza ${codeLabel(GRAU_CERTEZA_LABELS,r.cet_grau_certeza)||"—"} · Assoc. ${assoc||"—"}`;
+    }
+    return "";
+  }
+
+  function buildReport(){
+    const codigo = document.getElementById("saida-codigo").value.trim();
+    const data = document.getElementById("saida-data").value;
+    const filtered = getFilteredRegistos();
+
+    const counts = {};
+    filtered.forEach(r=>{ counts[r.categoria] = (counts[r.categoria]||0)+1; });
+    const countsStr = Object.keys(CAT_LABELS).map(k=> `${CAT_LABELS[k]}: ${counts[k]||0}`).join(" · ");
+
+    const rowsHtml = filtered.map((r,i)=>{
+      const title = r.categoria==="Esforco" ? codeLabel(ACAO_LABELS, r.especie) : r.especie;
+      return `<tr>
+        <td>${i+1}</td>
+        <td>${escapeHtml(CAT_LABELS[r.categoria]||"")}</td>
+        <td>${escapeHtml(r.hora)}</td>
+        <td>${escapeHtml(r.transecto)}</td>
+        <td>${escapeHtml(r.lat)}, ${escapeHtml(r.lon)}</td>
+        <td>${escapeHtml(title)||"—"}</td>
+        <td>${escapeHtml(resumoRegisto(r))}</td>
+        <td>${escapeHtml(r.fotos)||"—"}</td>
+      </tr>`;
+    }).join("");
+
+    document.getElementById("print-report").innerHTML = `
+      <div class="pr-h1">Relatório de Avistamentos no Mar</div>
+      <div class="pr-sub">Saída: ${escapeHtml(codigo)||"—"} · Data: ${escapeHtml(data)||"—"} · Gerado em ${escapeHtml(new Date().toLocaleString('pt-PT'))}</div>
+      <div class="pr-summary">Total de registos: ${filtered.length} &nbsp;·&nbsp; ${escapeHtml(countsStr)}</div>
+      <div class="pr-section-title">Registos</div>
+      <table class="pr-table">
+        <thead><tr><th>#</th><th>Categoria</th><th>Hora</th><th>Transecto</th><th>Coordenadas</th><th>Espécie/Ação</th><th>Detalhes</th><th>Fotos</th></tr></thead>
+        <tbody>${rowsHtml || '<tr><td colspan="8">Sem registos.</td></tr>'}</tbody>
+      </table>
+    `;
+  }
+
+  document.getElementById("btn-report").addEventListener("click", ()=>{
+    buildReport();
+    setTimeout(()=> window.print(), 50);
+  });
+
+  // ---------- service worker ----------
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", ()=>{
+      navigator.serviceWorker.register("sw.js").catch(()=>{});
+    });
+  }
+
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
