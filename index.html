@@ -43,7 +43,7 @@
     padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
   }
   .brand{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-  .brand-logo{width:34px;height:34px;border-radius:8px;flex-shrink:0;object-fit:cover;}
+  .brand-logo{width:2cm;height:2cm;border-radius:10px;flex-shrink:0;object-fit:cover;}
   .brand h1{flex:1;}
   .brand h1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;margin:0;font-weight:700;color:var(--foam);}
   .brand h1 span{color:var(--sun);}
@@ -75,6 +75,11 @@
 
   /* ---- Log list ---- */
   main{flex:1;padding:12px 14px 100px;overflow-y:auto;}
+  .app-footer{
+    text-align:center;font-size:11px;color:var(--foam-dim);opacity:.7;
+    margin:18px 0 6px;letter-spacing:.02em;
+  }
+
   .log-count{
     display:flex;justify-content:space-between;align-items:baseline;
     font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--foam-dim);
@@ -331,6 +336,7 @@
 
     <div class="log-count"><span>Registos desta saída</span><b id="count-badge">0</b></div>
     <div id="log-list"></div>
+    <div class="app-footer">© João Lagoa e Nuno Prazeres</div>
   </main>
 
   <div class="fab-wrap"><button id="fab">+ Criar Registo</button></div>
@@ -1041,6 +1047,13 @@
       catValue = btn.dataset.v;
       setSegmentedActive("categoria-segmented", catValue);
       showCategoryBlock(catValue);
+      if(["Cetaceos","Lixo","Tartaruga"].includes(catValue)){
+        const transectoEl = document.getElementById("f-transecto");
+        if(!transectoEl.value){
+          const it = findLastITRecord();
+          if(it && it.transecto) transectoEl.value = it.transecto;
+        }
+      }
     });
   });
 
