@@ -42,7 +42,9 @@
     border-bottom:1px solid var(--sea-line);
     padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
   }
-  .brand{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .brand-logo{width:34px;height:34px;border-radius:8px;flex-shrink:0;object-fit:cover;}
+  .brand h1{flex:1;}
   .brand h1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;margin:0;font-weight:700;color:var(--foam);}
   .brand h1 span{color:var(--sun);}
   #gps-dot{width:9px;height:9px;border-radius:50%;background:var(--coral);flex-shrink:0;transition:background .3s;}
@@ -288,6 +290,7 @@
 
   <header class="topbar">
     <div class="brand">
+      <img src="logo-header.png" alt="Avistamentos DRPM" class="brand-logo">
       <h1>Log<span>·</span>Avistamentos</h1>
       <div id="gps-dot"></div>
     </div>
@@ -312,10 +315,11 @@
   <main>
     <div class="toolbar">
       <button id="btn-export-csv">Exportar CSV</button>
+      <button id="btn-export-excel">Exportar Excel</button>
       <button id="btn-export-json">Cópia segurança</button>
-      <button id="btn-import-json">Importar (JSON/CSV)</button>
     </div>
     <div class="toolbar">
+      <button id="btn-import-json">Importar (JSON/CSV)</button>
       <button id="btn-import-gpx" style="border-color:var(--sun);color:var(--sun);">📡 Importar GPX (eTrex)</button>
     </div>
     <div class="toolbar">
@@ -1040,6 +1044,41 @@
     });
   });
 
+  // ---------- Esforço: herdar dados do último "Início Transecto" (IT) ----------
+  function findLastITRecord(){
+    const codigo = document.getElementById("saida-codigo").value.trim();
+    const data = document.getElementById("saida-data").value;
+    const candidates = registos.filter(r =>
+      r.codigo_saida===codigo && r.data===data && r.categoria==="Esforco" && r.esf_acao==="IT"
+    ).sort((a,b)=> a.criado_em < b.criado_em ? -1 : 1);
+    return candidates.length ? candidates[candidates.length-1] : null;
+  }
+  document.getElementById("f-esf-acao").addEventListener("change", ()=>{
+    const acao = document.getElementById("f-esf-acao").value;
+    if(!["MT","PT","RT","FT"].includes(acao)) return;
+    const it = findLastITRecord();
+    if(!it) return;
+    const fields = [
+      ["f-transecto","transecto"],
+      ["f-esf-obs-bb","esf_obs_bb"],
+      ["f-esf-obs-dados","esf_obs_dados"],
+      ["f-esf-obs-eb","esf_obs_eb"],
+      ["f-esf-beaufort","esf_beaufort"],
+      ["f-esf-vaga","esf_vaga"],
+      ["f-esf-chuva","esf_chuva"],
+      ["f-esf-nuvens","esf_nuvens"],
+      ["f-esf-vento","esf_vento"],
+      ["f-esf-glare-bb","esf_glare_bb"],
+      ["f-esf-glare-proa","esf_glare_proa"],
+      ["f-esf-glare-eb","esf_glare_eb"],
+      ["f-esf-visibilidade","esf_visibilidade"]
+    ];
+    fields.forEach(([fieldId, key])=>{
+      const el = document.getElementById(fieldId);
+      if(el && !el.value) el.value = it[key] || "";
+    });
+  });
+
   // ---------- lixo recolhido / aglomerado segmented ----------
   document.querySelectorAll("#lixo-recolhido-segmented button").forEach(btn=>{
     btn.addEventListener("click", ()=>{
@@ -1558,6 +1597,66 @@
     if(registos.length===0){ alert("Ainda não há registos para exportar."); return; }
     const csv = "\uFEFF" + toCSV(registos);
     download("avistamentos_"+new Date().toISOString().slice(0,10)+".csv", csv, "text/csv;charset=utf-8");
+  });
+
+  // ---------- exportação Excel (uma folha por categoria) ----------
+  const EXCEL_SHEETS = [
+    { cat: "Esforco", name: "Esforço", headers: ["id","codigo_saida","data","transecto","hora","lat","lon","velocidade","rumo",
+        "esf_acao","esf_obs_bb","esf_obs_dados","esf_obs_eb","esf_beaufort","esf_vaga","esf_chuva","esf_nuvens","esf_vento",
+        "esf_glare_bb","esf_glare_proa","esf_glare_eb","esf_visibilidade","esf_notas","criado_em"] },
+    { cat: "Cetaceos", name: "Cetáceos", headers: ["id","codigo_saida","data","transecto","hora","lat","lon","velocidade","rumo","angulo","distancia",
+        "cet_observador","cet_glare","cet_especie","cet_n_min","cet_n_best","cet_n_max","cet_comportamento","cet_reacao",
+        "cet_associacoes","cet_grau_certeza","fotos","fotos_ref","cet_notas","criado_em"] },
+    { cat: "Lixo", name: "Lixo", headers: ["id","codigo_saida","data","transecto","hora","lat","lon","velocidade","rumo","angulo","distancia",
+        "lixo_observador","lixo_glare","lixo_tipo","lixo_tamanho","lixo_cor","lixo_aglomerado","lixo_recolhido",
+        "fotos","fotos_ref","lixo_notas","criado_em"] },
+    { cat: "Tartaruga", name: "Tartarugas", headers: ["id","codigo_saida","data","transecto","hora","lat","lon","velocidade","rumo","angulo","distancia",
+        "tartaruga_observador","tartaruga_glare","tartaruga_especie","tartaruga_tamanho","tartaruga_comportamento","tartaruga_reacao",
+        "tartaruga_associacoes","tartaruga_grau_certeza","fotos","fotos_ref","tartaruga_notas","criado_em"] }
+  ];
+
+  function xmlEscape(v){
+    v = (v===undefined||v===null) ? "" : String(v);
+    return v.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+             .replace(/"/g,"&quot;").replace(/'/g,"&apos;")
+             .replace(/\r?\n/g, "&#10;");
+  }
+
+  function buildExcelXML(rows){
+    let sheetsXml = EXCEL_SHEETS.map(sheet=>{
+      const data = rows.filter(r=> r.categoria === sheet.cat);
+      const headerRow = "<Row>" + sheet.headers.map(h=>
+        `<Cell ss:StyleID="Header"><Data ss:Type="String">${xmlEscape(h)}</Data></Cell>`
+      ).join("") + "</Row>";
+      const dataRows = data.map(r=>
+        "<Row>" + sheet.headers.map(h=>
+          `<Cell><Data ss:Type="String">${xmlEscape(r[h])}</Data></Cell>`
+        ).join("") + "</Row>"
+      ).join("");
+      return `<Worksheet ss:Name="${xmlEscape(sheet.name)}"><Table>${headerRow}${dataRows}</Table></Worksheet>`;
+    }).join("");
+
+    return `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Styles>
+  <Style ss:ID="Header">
+   <Font ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#0F2C38" ss:Pattern="Solid"/>
+  </Style>
+ </Styles>
+ ${sheetsXml}
+</Workbook>`;
+  }
+
+  document.getElementById("btn-export-excel").addEventListener("click", ()=>{
+    if(registos.length===0){ alert("Ainda não há registos para exportar."); return; }
+    const xml = buildExcelXML(registos);
+    download("avistamentos_"+new Date().toISOString().slice(0,10)+".xls", xml, "application/vnd.ms-excel;charset=utf-8");
   });
 
   document.getElementById("btn-export-json").addEventListener("click", ()=>{
